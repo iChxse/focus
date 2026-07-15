@@ -733,6 +733,91 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* ─────────────────────────────────────────
+   TODAY DATE NAV
+───────────────────────────────────────── */
+.today-date-nav {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 16px;
+}
+.today-date-nav-btn {
+  width: 30px; height: 30px; border-radius: var(--r-sm);
+  background: var(--surf-2); border: 1px solid var(--border);
+  color: var(--text-2); font-size: 16px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+}
+.today-date-nav-btn:hover { background: var(--surf-3); color: var(--text); }
+.today-date-nav-btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+.today-date-nav-label {
+  flex: 1; font-size: 13px; font-weight: 500; color: var(--text-2);
+}
+.today-date-nav-today-btn {
+  font-size: 11px; font-weight: 600; color: var(--accent);
+  background: var(--accent-dim); border: none; border-radius: 20px;
+  padding: 4px 10px; cursor: pointer; transition: all 0.15s;
+  display: none;
+}
+.today-date-nav-today-btn.visible { display: block; }
+.today-date-nav-today-btn:hover { background: var(--accent-mid); }
+
+/* ─────────────────────────────────────────
+   ACTIVITY TIMELINE
+───────────────────────────────────────── */
+.activity-list { display: flex; flex-direction: column; gap: 0; padding-bottom: 4px; }
+
+.activity-entry {
+  display: flex; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+}
+.activity-entry:last-child { border-bottom: none; }
+
+.activity-line {
+  display: flex; flex-direction: column; align-items: center;
+  flex-shrink: 0; width: 20px; padding-top: 3px;
+}
+.activity-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--surf-3); border: 1.5px solid var(--border-2);
+  flex-shrink: 0;
+}
+.activity-dot.type-task   { background: var(--blue);   border-color: var(--blue); }
+.activity-dot.type-habit  { background: var(--accent);  border-color: var(--accent); }
+.activity-dot.type-manual { background: var(--amber);  border-color: var(--amber); }
+
+.activity-body { flex: 1; min-width: 0; }
+.activity-title {
+  font-size: 13px; font-weight: 500; color: var(--text-2);
+  line-height: 1.35; margin-bottom: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.activity-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.activity-time { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.activity-type-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  padding: 1px 6px; border-radius: 20px;
+  color: var(--text-3); background: var(--surf-3);
+}
+.activity-type-tag.type-habit  { color: var(--accent); background: var(--accent-dim); }
+.activity-type-tag.type-task   { color: var(--blue);   background: var(--blue-dim); }
+.activity-type-tag.type-manual { color: var(--amber);  background: var(--amber-dim); }
+.activity-proj-tag {
+  font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 20px;
+}
+
+.activity-actions {
+  display: flex; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.12s;
+}
+.activity-entry:hover .activity-actions { opacity: 1; }
+.activity-action-btn {
+  width: 26px; height: 26px; border-radius: 5px; border: none;
+  background: transparent; color: var(--text-3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; transition: all 0.12s;
+}
+.activity-action-btn:hover { background: var(--surf-3); color: var(--text); }
+.activity-action-btn.danger:hover { background: var(--red-dim); color: var(--red); }
 </style>
 </head>
 <body>
@@ -746,6 +831,13 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
     <div class="today-header">
       <div class="today-greeting">
         <span id="greetingText">Good morning</span><span class="today-date">, <span id="todayDate"></span></span>
+      </div>
+      <!-- Date navigation -->
+      <div class="today-date-nav">
+        <button class="today-date-nav-btn" id="datePrevBtn" onclick="shiftViewDate(-1)">‹</button>
+        <div class="today-date-nav-label" id="dateNavLabel"></div>
+        <button class="today-date-nav-today-btn" id="dateNavTodayBtn" onclick="goToToday()">Today</button>
+        <button class="today-date-nav-btn" id="dateNextBtn" onclick="shiftViewDate(1)">›</button>
       </div>
       <div class="today-progress">
         <div class="progress-ring-wrap">
@@ -791,6 +883,17 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
       <div id="todayTasksEmpty" style="display:none;">
         <div class="empty" style="padding: 24px 0;">
           <div class="empty-sub">No tasks due today — enjoy the clear runway</div>
+        </div>
+      </div>
+
+      <!-- Activity section -->
+      <div id="todayActivitySection">
+        <div class="section-label" style="margin-top:28px;">
+          Activity
+        </div>
+        <div id="todayActivityList" class="activity-list"></div>
+        <div id="todayActivityEmpty" style="display:none;">
+          <div style="padding:12px 0 8px;color:var(--text-3);font-size:13px;">Nothing recorded yet.</div>
         </div>
       </div>
     </div>
@@ -927,6 +1030,10 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
     <div class="fab-dial-label">New Task</div>
     <div class="fab-dial-btn" onclick="closeFab();openSheet('sheetTask')">✅</div>
   </div>
+  <div class="fab-dial-item">
+    <div class="fab-dial-label">Completed Task</div>
+    <div class="fab-dial-btn" onclick="closeFab();openNewActivity()">📋</div>
+  </div>
 </div>
 
 <!-- ════════════════════════════════
@@ -1054,6 +1161,46 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
   </div>
 </div>
 
+<!-- ════════════════════════════════
+     SHEET: MANUAL COMPLETED TASK
+════════════════════════════════ -->
+<div class="sheet-overlay" id="sheetActivity" onclick="sheetOverlayClick(event,'sheetActivity')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="activitySheetTitle">Completed Task</div>
+    <div class="sheet-body">
+      <div class="field">
+        <label class="field-label">What did you do?</label>
+        <input class="field-input" id="activityTitle" placeholder="e.g. Fixed the login bug" maxlength="200" onkeydown="if(event.key==='Enter')saveActivity()">
+      </div>
+      <div class="field">
+        <textarea class="field-input" id="activityDesc" placeholder="Notes (optional)" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">Project</label>
+        <div class="project-select-list" id="activityProjectSelect"></div>
+      </div>
+      <div class="field" style="display:flex;gap:12px;">
+        <div style="flex:1;">
+          <label class="field-label">Date</label>
+          <input type="date" class="field-input" id="activityDate">
+        </div>
+        <div style="flex:1;">
+          <label class="field-label">Time</label>
+          <input type="time" class="field-input" id="activityTime">
+        </div>
+      </div>
+    </div>
+    <div id="activityDeleteWrap" style="display:none;padding:0 20px 12px;">
+      <button class="btn-danger" onclick="deleteActivity()">Delete Entry</button>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeSheet('sheetActivity')">Cancel</button>
+      <button class="btn-save" onclick="saveActivity()" id="activitySaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -1078,8 +1225,10 @@ let projects   = ld('focus_v1_projects', []);
 let tasks      = ld('focus_v1_tasks', []);
 let habits     = ld('focus_v1_habits', []);
 let completions= ld('focus_v1_completions', []); // {habitId, date}
+let activity   = ld('focus_v1_activity', []);   // activity timeline entries
 let lastReset  = ld('focus_v1_lastReset', '');
 let activeTab  = 'today';
+let viewingDate = today(); // which date the Today screen is showing
 let detailProjectId = null;
 let showDetailCompleted = false;
 
@@ -1100,12 +1249,49 @@ function saveAll() {
   sv('focus_v1_tasks',      tasks);
   sv('focus_v1_habits',     habits);
   sv('focus_v1_completions',completions);
+  sv('focus_v1_activity',   activity);
+}
+
+// ═══════════════════════════════════════════════════
+//  ACTIVITY HELPERS
+// ═══════════════════════════════════════════════════
+
+// Build a local-time ISO string from a Date
+function localISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')+'T'+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); }
+
+// Extract local YYYY-MM-DD from any ISO string (local or UTC)
+function localDateOf(isoStr){
+  // isoStr may be UTC (ends Z) or local — parse safely
+  const d = new Date(isoStr);
+  return toISO(d); // toISO already uses local getFullYear/Month/Date
+}
+
+// Upsert an auto-generated activity entry (task or habit completion).
+// Keyed on sourceId+date — guarantees exactly one entry per source per day.
+function upsertActivity(entry){
+  // Remove any existing entry with same sourceId+date (dedup)
+  activity = activity.filter(a => !(a.sourceId && a.sourceId===entry.sourceId && a.date===entry.date));
+  activity.unshift(entry);
+}
+
+// Remove auto-generated activity entry for a sourceId on a given date
+function removeActivityBySource(sourceId, date){
+  activity = activity.filter(a => !(a.sourceId===sourceId && a.date===date));
+}
+
+// Format time for display: "3:42 PM"
+function fmtTime(isoStr){
+  const d = new Date(isoStr);
+  let h = d.getHours(), m = d.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return h + ':' + String(m).padStart(2,'0') + ' ' + ampm;
 }
 
 // ═══════════════════════════════════════════════════
 //  DATE UTILS
 // ═══════════════════════════════════════════════════
-function toISO(d){ return d.toISOString().slice(0,10); }
+function toISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function today(){ return toISO(new Date()); }
 function tomorrow(){ const d=new Date(); d.setDate(d.getDate()+1); return toISO(d); }
 function todayDow(){ return new Date().getDay(); } // 0=Sun
@@ -1188,11 +1374,13 @@ function bestStreak(habit){
 //  PROGRESS
 // ═══════════════════════════════════════════════════
 function calcTodayProgress(){
-  const t = today();
-  const scheduledHabits = habits.filter(h => isHabitScheduledToday(h));
-  const doneHabits = scheduledHabits.filter(h => habitCompletedOn(h.id, t));
-  const dueTasks = tasks.filter(tk => tk.dueDate===t && !tk.completed);
-  const doneTasks = tasks.filter(tk => tk.dueDate===t && tk.completed);
+  const vd = viewingDate;
+  const viewDow = (function(){ const d=new Date(vd+'T12:00:00'); return d.getDay(); })();
+  function isHabitScheduledOnVd(h){ return h.repeatType==='daily'||h.repeatDays.includes(viewDow); }
+  const scheduledHabits = habits.filter(h => isHabitScheduledOnVd(h));
+  const doneHabits = scheduledHabits.filter(h => habitCompletedOn(h.id, vd));
+  const dueTasks = tasks.filter(tk => tk.dueDate===vd && !tk.completed);
+  const doneTasks = tasks.filter(tk => tk.dueDate===vd && tk.completed);
   const total = scheduledHabits.length + dueTasks.length + doneTasks.length;
   const done  = doneHabits.length + doneTasks.length;
   return { total, done, pct: total ? Math.round(done/total*100) : 0 };
@@ -1221,19 +1409,31 @@ function updateProgress(){
 // ═══════════════════════════════════════════════════
 function renderToday(){
   const t = today();
+  const vd = viewingDate; // may differ from today when browsing history
+  const isViewingToday = (vd === t);
 
-  // Habits
-  const scheduledHabits = habits.filter(h => isHabitScheduledToday(h));
+  // Update date nav
+  updateDateNav();
+
+  // DOW for habit schedule check on viewingDate
+  const viewDow = (function(){ const d=new Date(vd+'T12:00:00'); return d.getDay(); })();
+  function isHabitScheduledOn(habit){
+    if(habit.repeatType==='daily') return true;
+    return habit.repeatDays.includes(viewDow);
+  }
+
+  // Habits (scheduled for the viewed date)
+  const scheduledHabits = habits.filter(h => isHabitScheduledOn(h));
   const hl = document.getElementById('todayHabitsList');
   hl.innerHTML='';
   if(scheduledHabits.length===0){
-    hl.innerHTML='<div style="color:var(--text-3);font-size:13px;padding:8px 0 4px;">No habits today</div>';
+    hl.innerHTML='<div style="color:var(--text-3);font-size:13px;padding:8px 0 4px;">No habits scheduled</div>';
   } else {
-    scheduledHabits.forEach(h => hl.appendChild(makeHabitRow(h)));
+    scheduledHabits.forEach(h => hl.appendChild(makeHabitRow(h, vd)));
   }
 
-  // Pinned tasks
-  const pinned = tasks.filter(tk => tk.pinned && !tk.completed);
+  // Pinned tasks — only show on today view
+  const pinned = isViewingToday ? tasks.filter(tk => tk.pinned && !tk.completed) : [];
   const pinnedSec = document.getElementById('todayPinnedSection');
   const pinnedList = document.getElementById('todayPinnedList');
   if(pinned.length){
@@ -1244,8 +1444,8 @@ function renderToday(){
     pinnedSec.style.display='none';
   }
 
-  // Overdue
-  const overdue = tasks.filter(tk => isOverdue(tk.dueDate) && !tk.completed);
+  // Overdue — only on today view
+  const overdue = isViewingToday ? tasks.filter(tk => isOverdue(tk.dueDate) && !tk.completed) : [];
   const overdueSec = document.getElementById('todayOverdueSection');
   const overdueList = document.getElementById('todayOverdueList');
   if(overdue.length){
@@ -1256,37 +1456,112 @@ function renderToday(){
     overdueSec.style.display='none';
   }
 
-  // Today tasks
-  const todayTasks = tasks.filter(tk => tk.dueDate===t);
+  // Tasks for viewed date
+  const viewedTasks = tasks.filter(tk => tk.dueDate===vd);
   const todaySec = document.getElementById('todayTasksSection');
   const todayList = document.getElementById('todayTasksList');
   const todayEmpty = document.getElementById('todayTasksEmpty');
-  if(todayTasks.length){
+  // Update section label text
+  todaySec.querySelector('.section-label').textContent = isViewingToday ? 'Today' : 'Tasks';
+  if(viewedTasks.length){
     todaySec.style.display='';
     todayEmpty.style.display='none';
     todayList.innerHTML='';
-    todayTasks.filter(tk=>!tk.completed).forEach(tk=>todayList.appendChild(makeTaskRow(tk)));
-    const doneTasks = todayTasks.filter(tk=>tk.completed);
-    if(doneTasks.length){
-      doneTasks.forEach(tk=>todayList.appendChild(makeTaskRow(tk)));
-    }
+    viewedTasks.filter(tk=>!tk.completed).forEach(tk=>todayList.appendChild(makeTaskRow(tk)));
+    viewedTasks.filter(tk=>tk.completed).forEach(tk=>todayList.appendChild(makeTaskRow(tk)));
   } else {
     todaySec.style.display='none';
     todayEmpty.style.display=(scheduledHabits.length===0 && pinned.length===0 && overdue.length===0)?'':'none';
   }
 
   updateProgress();
+  renderTodayActivity();
 }
 
-function makeHabitRow(habit){
+function updateDateNav(){
   const t = today();
-  const done = habitCompletedOn(habit.id, t);
+  const isToday = (viewingDate === t);
+  // label
+  const d = new Date(viewingDate+'T12:00:00');
+  const label = isToday ? 'Today' : d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  document.getElementById('dateNavLabel').textContent = label;
+  // "Today" jump button — only visible when not on today
+  document.getElementById('dateNavTodayBtn').classList.toggle('visible', !isToday);
+  // next button disabled when on today
+  document.getElementById('dateNextBtn').disabled = isToday;
+}
+
+function shiftViewDate(delta){
+  const d = new Date(viewingDate+'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  const newDate = toISO(d);
+  // Don't go past today
+  if(newDate > today()) return;
+  viewingDate = newDate;
+  renderToday();
+}
+
+function goToToday(){
+  viewingDate = today();
+  renderToday();
+}
+
+function renderTodayActivity(){
+  const list = document.getElementById('todayActivityList');
+  const empty = document.getElementById('todayActivityEmpty');
+  // Get entries for viewed date, sorted chronologically
+  const entries = activity
+    .filter(a => a.date === viewingDate)
+    .sort((a,b) => new Date(a.completedAt) - new Date(b.completedAt));
+
+  list.innerHTML='';
+  if(!entries.length){
+    empty.style.display='';
+    return;
+  }
+  empty.style.display='none';
+  entries.forEach(a => list.appendChild(makeActivityEntry(a)));
+}
+
+function makeActivityEntry(a){
+  const el = document.createElement('div');
+  el.className = 'activity-entry';
+  const proj = a.projectId ? projects.find(p=>p.id===a.projectId) : null;
+  const projHtml = proj
+    ? `<span class="activity-proj-tag" style="background:${hexA(proj.color,0.15)};color:${proj.color};font-size:11px;font-weight:600;padding:1px 6px;border-radius:20px;">${esc(proj.name)}</span>`
+    : '';
+  const typeLabel = a.type==='habit' ? 'Habit' : a.type==='task' ? 'Task' : 'Manual';
+  const isManual = a.type === 'manual';
+
+  el.innerHTML = `
+    <div class="activity-line">
+      <div class="activity-dot type-${a.type}"></div>
+    </div>
+    <div class="activity-body">
+      <div class="activity-title">${esc(a.title)}</div>
+      <div class="activity-meta">
+        <span class="activity-time">${fmtTime(a.completedAt)}</span>
+        <span class="activity-type-tag type-${a.type}">${typeLabel}</span>
+        ${projHtml}
+      </div>
+    </div>
+    ${isManual ? `<div class="activity-actions">
+      <button class="activity-action-btn" onclick="openEditActivity('${a.id}')" title="Edit">✏️</button>
+      <button class="activity-action-btn danger" onclick="confirmDeleteActivity('${a.id}')" title="Delete">🗑</button>
+    </div>` : ''}`;
+  return el;
+}
+
+function makeHabitRow(habit, forDate){
+  const t = today();
+  const vd = forDate || t;
+  const done = habitCompletedOn(habit.id, vd);
   const streak = calcStreak(habit);
   const el = document.createElement('div');
   el.className = 'habit-row' + (done?' done':'');
   el.dataset.hid = habit.id;
 
-  // 7-day dots
+  // 7-day dots (always anchored to real today)
   const dots = [];
   for(let i=6;i>=0;i--){
     const d=new Date(); d.setDate(d.getDate()-i);
@@ -1316,7 +1591,7 @@ function makeHabitRow(habit){
 
   el.addEventListener('click', e => {
     if(e.target.closest('[data-action]')) return;
-    toggleHabit(habit.id, el);
+    toggleHabit(habit.id, el, vd);
   });
   el.addEventListener('dblclick', e => { e.preventDefault(); openEditHabit(habit.id); });
   return el;
@@ -1352,17 +1627,33 @@ function makeTaskRow(task){
 // ═══════════════════════════════════════════════════
 //  HABIT TOGGLE
 // ═══════════════════════════════════════════════════
-function toggleHabit(id, el){
+function toggleHabit(id, el, onDate){
   const t = today();
-  const was = habitCompletedOn(id, t);
+  const d = onDate || t;
+  const was = habitCompletedOn(id, d);
+  const habit = habits.find(h=>h.id===id);
   if(was){
-    completions = completions.filter(c=>!(c.habitId===id&&c.date===t));
+    completions = completions.filter(c=>!(c.habitId===id&&c.date===d));
+    // Remove from activity timeline
+    removeActivityBySource(id, d);
     el.classList.remove('done');
   } else {
-    completions.push({habitId:id, date:t});
+    completions.push({habitId:id, date:d});
+    // Upsert activity entry — completedAt is now if today, or noon on past date
+    const completedAt = (d===t) ? localISO(new Date()) : (d+'T12:00:00');
+    upsertActivity({
+      id: 'act_h_'+id+'_'+d,
+      type: 'habit',
+      sourceId: id,        // dedup key: one habit entry per day
+      title: habit.name,
+      description: '',
+      projectId: null,
+      completedAt,
+      date: d,
+      createdAt: localISO(new Date()),
+    });
     el.classList.add('done');
     // streak tick animation
-    const habit = habits.find(h=>h.id===id);
     const newStreak = calcStreak(habit);
     const numEl = el.querySelector('.streak-num');
     if(numEl){
@@ -1390,7 +1681,29 @@ function toggleTask(id, e){
   const tk = tasks.find(t=>t.id===id);
   if(!tk) return;
   tk.completed = !tk.completed;
-  tk.completedAt = tk.completed ? new Date().toISOString() : null;
+  if(tk.completed){
+    const now = new Date();
+    tk.completedAt = localISO(now);
+    const date = toISO(now);
+    upsertActivity({
+      id: 'act_t_'+tk.id+'_'+date,
+      type: 'task',
+      sourceId: tk.id,     // dedup key: one task entry per day
+      title: tk.title,
+      description: tk.description || '',
+      projectId: tk.projectId || null,
+      completedAt: tk.completedAt,
+      date,
+      createdAt: localISO(now),
+    });
+  } else {
+    // Uncomplete: remove activity entry for this task on its completion date
+    if(tk.completedAt){
+      const date = localDateOf(tk.completedAt);
+      removeActivityBySource(tk.id, date);
+    }
+    tk.completedAt = null;
+  }
   saveAll();
   renderAll();
 }
@@ -1643,6 +1956,7 @@ function closeSheet(id){
   if(id==='sheetTask'){ editTaskId=null; addTaskProjectId=null; }
   if(id==='sheetHabit') editHabitId=null;
   if(id==='sheetProject') editProjectId=null;
+  if(id==='sheetActivity'){ editActivityId=null; activityProjectId=null; }
 }
 function sheetOverlayClick(e, id){
   if(e.target===document.getElementById(id)) closeSheet(id);
@@ -1958,6 +2272,111 @@ function deleteProject(){
   showToast('Project deleted');
 }
 
+// ─────────────────────────────────────────
+//  ACTIVITY SHEET
+// ─────────────────────────────────────────
+let editActivityId = null;
+let activityProjectId = null;
+
+function openNewActivity(){
+  editActivityId = null;
+  activityProjectId = null;
+  document.getElementById('activitySheetTitle').textContent = 'Completed Task';
+  document.getElementById('activitySaveBtn').textContent = 'Save';
+  document.getElementById('activityTitle').value = '';
+  document.getElementById('activityDesc').value = '';
+  document.getElementById('activityDeleteWrap').style.display = 'none';
+  // Default date = viewingDate, time = now
+  document.getElementById('activityDate').value = viewingDate;
+  const now = new Date();
+  document.getElementById('activityTime').value = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  renderActivityProjectSelect();
+  openSheet('sheetActivity');
+}
+
+function openEditActivity(id){
+  const a = activity.find(a=>a.id===id); if(!a) return;
+  editActivityId = id;
+  activityProjectId = a.projectId || null;
+  document.getElementById('activitySheetTitle').textContent = 'Edit Entry';
+  document.getElementById('activitySaveBtn').textContent = 'Save';
+  document.getElementById('activityTitle').value = a.title;
+  document.getElementById('activityDesc').value = a.description || '';
+  document.getElementById('activityDeleteWrap').style.display = '';
+  // Parse completedAt back to date+time inputs
+  const d = new Date(a.completedAt);
+  document.getElementById('activityDate').value = toISO(d);
+  document.getElementById('activityTime').value = String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  renderActivityProjectSelect();
+  openSheet('sheetActivity');
+}
+
+function renderActivityProjectSelect(){
+  const wrap = document.getElementById('activityProjectSelect');
+  wrap.innerHTML = '';
+  const noneBtn = document.createElement('button');
+  noneBtn.className = 'project-select-item' + (!activityProjectId ? ' active' : '');
+  noneBtn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:var(--border-2);flex-shrink:0;"></span>No project`;
+  noneBtn.onclick = ()=>{ activityProjectId=null; renderActivityProjectSelect(); };
+  wrap.appendChild(noneBtn);
+  projects.forEach(p=>{
+    const btn = document.createElement('button');
+    btn.className = 'project-select-item' + (activityProjectId===p.id?' active':'');
+    btn.innerHTML = `<span style="width:10px;height:10px;border-radius:50%;background:${p.color};flex-shrink:0;"></span>${esc(p.name)}`;
+    btn.onclick = ()=>{ activityProjectId=p.id; renderActivityProjectSelect(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function saveActivity(){
+  const title = document.getElementById('activityTitle').value.trim();
+  if(!title){ document.getElementById('activityTitle').focus(); return; }
+  const description = document.getElementById('activityDesc').value.trim();
+  const dateVal = document.getElementById('activityDate').value || viewingDate;
+  const timeVal = document.getElementById('activityTime').value || '00:00';
+  const completedAt = dateVal + 'T' + timeVal + ':00';
+
+  if(editActivityId){
+    const a = activity.find(a=>a.id===editActivityId);
+    if(a){
+      a.title = title;
+      a.description = description;
+      a.projectId = activityProjectId || null;
+      a.completedAt = completedAt;
+      a.date = dateVal;
+    }
+  } else {
+    activity.unshift({
+      id: 'act_m_'+Date.now(),
+      type: 'manual',
+      sourceId: null,      // manual entries: no dedup by sourceId
+      title,
+      description,
+      projectId: activityProjectId || null,
+      completedAt,
+      date: dateVal,
+      createdAt: localISO(new Date()),
+    });
+  }
+  saveAll();
+  closeSheet('sheetActivity');
+  renderTodayActivity();
+  showToast(editActivityId ? 'Entry updated' : 'Activity recorded');
+}
+
+function deleteActivity(){
+  activity = activity.filter(a=>a.id!==editActivityId);
+  saveAll();
+  closeSheet('sheetActivity');
+  renderTodayActivity();
+  showToast('Entry deleted');
+}
+
+function confirmDeleteActivity(id){
+  editActivityId = id;
+  deleteActivity();
+}
+
 // ═══════════════════════════════════════════════════
 //  RENDER ALL
 // ═══════════════════════════════════════════════════
@@ -2001,7 +2420,7 @@ function hexA(hex,a){ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     closeFab();
-    ['sheetTask','sheetHabit','sheetProject'].forEach(closeSheet);
+    ['sheetTask','sheetHabit','sheetProject','sheetActivity'].forEach(closeSheet);
   }
 });
 
