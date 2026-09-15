@@ -197,38 +197,17 @@ input:focus, textarea:focus, button:focus-visible, [role="button"]:focus-visible
 }
 .today-date { color: var(--text-2); font-weight: 400; }
 
-/* Progress ring summary */
-.today-progress {
-  background: var(--surf-1);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: 16px 18px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
+/* Collapsible section header (Habits, Activity) */
+.section-toggle {
+  width: 100%;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--text-3); margin: 24px 0 10px;
+  background: none; border: none; cursor: pointer; padding: 0;
+  transition: color 0.15s;
 }
-.progress-ring-wrap {
-  position: relative;
-  width: 52px; height: 52px;
-  flex-shrink: 0;
-}
-.progress-ring-wrap svg { transform: rotate(-90deg); }
-.progress-ring-bg { fill: none; stroke: var(--surf-3); stroke-width: 4; }
-.progress-ring-fill {
-  fill: none; stroke: var(--accent); stroke-width: 4;
-  stroke-linecap: round;
-  stroke-dasharray: 138.2; /* 2π×22 */
-  stroke-dashoffset: 138.2;
-  transition: stroke-dashoffset 0.6s cubic-bezier(0.4,0,0.2,1);
-}
-.progress-ring-num {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700; color: var(--accent);
-}
-.progress-text { flex: 1; }
-.progress-text-main { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
-.progress-text-sub { font-size: 12px; color: var(--text-3); font-weight: 400; }
+.section-toggle:hover { color: var(--text-2); }
+.section-toggle .toggle-arrow { font-size: 10px; }
 
 /* ─────────────────────────────────────────
    HABIT ROW
@@ -574,48 +553,8 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
 .project-select-item:hover { border-color: var(--border-2); background: var(--surf-2); }
 .project-select-item.active { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
 
-/* FAB speed-dial */
-.fab-dial {
-  position: fixed; bottom: calc(var(--nav-h) + 12px + var(--safe-b));
-  left: 50%; transform: translateX(-50%);
-  display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
-  z-index: 150;
-  pointer-events: none; opacity: 0;
-  transition: opacity 0.2s;
-}
-.fab-dial.open { pointer-events: all; opacity: 1; }
-.fab-dial-item {
-  display: flex; align-items: center; gap: 10px;
-  animation: dialIn 0.2s ease both;
-}
-@keyframes dialIn {
-  from { opacity:0; transform:translateY(12px); }
-  to   { opacity:1; transform:translateY(0); }
-}
-.fab-dial-item:nth-child(1) { animation-delay: 0.05s; }
-.fab-dial-item:nth-child(2) { animation-delay: 0.02s; }
-.fab-dial-item:nth-child(3) { animation-delay: 0s; }
-.fab-dial-label {
-  background: var(--surf-2); border: 1px solid var(--border-2);
-  border-radius: 20px; padding: 7px 14px;
-  font-size: 13px; font-weight: 600; color: var(--text);
-  white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-}
-.fab-dial-btn {
-  width: 46px; height: 46px; border-radius: 50%;
-  background: var(--surf-2); border: 1px solid var(--border-2);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px; cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-  transition: transform 0.15s, background 0.15s;
-}
-.fab-dial-btn:hover { background: var(--surf-3); transform: scale(1.06); }
-
-/* FAB backdrop */
-.fab-backdrop {
-  display: none; position: fixed; inset: 0; z-index: 140;
-}
-.fab-backdrop.open { display: block; }
+/* Create page: reused sheet form fields, unwrapped from the sheet padding */
+#createFormSlot .sheet-body { padding: 4px 0 0; }
 
 /* Sheet action buttons */
 .sheet-actions {
@@ -839,38 +778,22 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
         <button class="today-date-nav-today-btn" id="dateNavTodayBtn" onclick="goToToday()">Today</button>
         <button class="today-date-nav-btn" id="dateNextBtn" onclick="shiftViewDate(1)">›</button>
       </div>
-      <div class="today-progress">
-        <div class="progress-ring-wrap">
-          <svg viewBox="0 0 52 52" width="52" height="52">
-            <circle class="progress-ring-bg" cx="26" cy="26" r="22"/>
-            <circle class="progress-ring-fill" id="progressRing" cx="26" cy="26" r="22"/>
-          </svg>
-          <div class="progress-ring-num" id="progressNum">0%</div>
-        </div>
-        <div class="progress-text">
-          <div class="progress-text-main" id="progressMain">Nothing done yet</div>
-          <div class="progress-text-sub" id="progressSub">Tap a habit or task to get started</div>
-        </div>
-      </div>
     </div>
 
     <div class="screen-body">
-      <!-- Habits today -->
+      <!-- Habits today (collapsible) -->
       <div id="todayHabitsSection">
-        <div class="section-label">Habits</div>
-        <div id="todayHabitsList"></div>
+        <button class="section-toggle" id="habitsToggleBtn" onclick="toggleTodayHabits()">
+          <span class="toggle-arrow" id="todayHabitsArrow">›</span>
+          <span id="todayHabitsSummary">Habits</span>
+        </button>
+        <div id="todayHabitsList" style="display:none;"></div>
       </div>
 
       <!-- Pinned -->
       <div id="todayPinnedSection" style="display:none;">
         <div class="section-label">📌 Pinned</div>
         <div id="todayPinnedList"></div>
-      </div>
-
-      <!-- Overdue -->
-      <div id="todayOverdueSection" style="display:none;">
-        <div class="section-label" style="color:var(--red);">Overdue</div>
-        <div id="todayOverdueList"></div>
       </div>
 
       <!-- Today tasks -->
@@ -886,14 +809,17 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
         </div>
       </div>
 
-      <!-- Activity section -->
+      <!-- Activity section (collapsible) -->
       <div id="todayActivitySection">
-        <div class="section-label" style="margin-top:28px;">
-          Activity
-        </div>
-        <div id="todayActivityList" class="activity-list"></div>
-        <div id="todayActivityEmpty" style="display:none;">
-          <div style="padding:12px 0 8px;color:var(--text-3);font-size:13px;">Nothing recorded yet.</div>
+        <button class="section-toggle" id="activityToggleBtn" onclick="toggleTodayActivity()" style="margin-top:28px;">
+          <span class="toggle-arrow open" id="todayActivityArrow">›</span>
+          <span>Activity</span>
+        </button>
+        <div id="todayActivityBody">
+          <div id="todayActivityList" class="activity-list"></div>
+          <div id="todayActivityEmpty" style="display:none;">
+            <div style="padding:12px 0 8px;color:var(--text-3);font-size:13px;">Nothing recorded yet.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -983,6 +909,53 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
   </div>
 
   <!-- ════════════════════════════════
+       CREATE (full page)
+  ════════════════════════════════ -->
+  <div class="screen" id="screen-create">
+    <div class="screen-body" style="padding-top:56px;">
+      <div id="createTypePicker">
+        <div class="habit-manage-row" role="button" tabindex="0" onclick="selectCreateType('task')">
+          <div class="habit-manage-emoji">✅</div>
+          <div class="habit-manage-info">
+            <div class="habit-manage-name">New Task</div>
+            <div class="habit-manage-sub">Add something to do</div>
+          </div>
+          <span class="project-arrow">›</span>
+        </div>
+        <div class="habit-manage-row" role="button" tabindex="0" onclick="selectCreateType('habit')">
+          <div class="habit-manage-emoji">🔥</div>
+          <div class="habit-manage-info">
+            <div class="habit-manage-name">New Habit</div>
+            <div class="habit-manage-sub">Build a streak</div>
+          </div>
+          <span class="project-arrow">›</span>
+        </div>
+        <div class="habit-manage-row" role="button" tabindex="0" onclick="selectCreateType('project')">
+          <div class="habit-manage-emoji">📁</div>
+          <div class="habit-manage-info">
+            <div class="habit-manage-name">New Project</div>
+            <div class="habit-manage-sub">Group related tasks</div>
+          </div>
+          <span class="project-arrow">›</span>
+        </div>
+        <div class="habit-manage-row" role="button" tabindex="0" onclick="selectCreateType('activity')">
+          <div class="habit-manage-emoji">📋</div>
+          <div class="habit-manage-info">
+            <div class="habit-manage-name">Completed Task</div>
+            <div class="habit-manage-sub">Log something you already did</div>
+          </div>
+          <span class="project-arrow">›</span>
+        </div>
+      </div>
+      <div id="createFormSlot" style="display:none;"></div>
+      <div class="sheet-actions" id="createFormActions" style="display:none;padding:0;margin-top:8px;">
+        <button class="btn-cancel" onclick="resetCreatePage()">Cancel</button>
+        <button class="btn-save" id="createSaveBtn">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════
        BOTTOM NAV
   ════════════════════════════════ -->
   <nav class="nav">
@@ -998,7 +971,7 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
       </svg>
       Projects
     </div>
-    <div class="nav-fab" id="navFab" role="button" tabindex="0" aria-label="Add" onclick="toggleFab()">
+    <div class="nav-fab" id="navFab" role="button" tabindex="0" aria-label="Add" onclick="openCreatePage()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
       </svg>
@@ -1019,36 +992,13 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
 </div>
 
 <!-- ════════════════════════════════
-     FAB SPEED DIAL
-════════════════════════════════ -->
-<div class="fab-backdrop" id="fabBackdrop" onclick="closeFab()"></div>
-<div class="fab-dial" id="fabDial">
-  <div class="fab-dial-item">
-    <div class="fab-dial-label">New Project</div>
-    <div class="fab-dial-btn" role="button" tabindex="0" aria-label="New Project" onclick="closeFab();openSheet('sheetProject')">📁</div>
-  </div>
-  <div class="fab-dial-item">
-    <div class="fab-dial-label">New Habit</div>
-    <div class="fab-dial-btn" role="button" tabindex="0" aria-label="New Habit" onclick="closeFab();openSheet('sheetHabit')">🔥</div>
-  </div>
-  <div class="fab-dial-item">
-    <div class="fab-dial-label">New Task</div>
-    <div class="fab-dial-btn" role="button" tabindex="0" aria-label="New Task" onclick="closeFab();openSheet('sheetTask')">✅</div>
-  </div>
-  <div class="fab-dial-item">
-    <div class="fab-dial-label">Completed Task</div>
-    <div class="fab-dial-btn" role="button" tabindex="0" aria-label="Completed Task" onclick="closeFab();openNewActivity()">📋</div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════
      SHEET: NEW / EDIT TASK
 ════════════════════════════════ -->
 <div class="sheet-overlay" id="sheetTask" onclick="sheetOverlayClick(event,'sheetTask')">
   <div class="sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="taskSheetTitle">New Task</div>
-    <div class="sheet-body">
+    <div class="sheet-body" id="taskFormFields">
       <div class="field">
         <input class="field-input" id="taskTitle" placeholder="What needs to be done?" maxlength="200" onkeydown="if(event.key==='Enter')saveTask()">
       </div>
@@ -1096,7 +1046,7 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
   <div class="sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="habitSheetTitle">New Habit</div>
-    <div class="sheet-body">
+    <div class="sheet-body" id="habitFormFields">
       <div class="field" style="display:flex;gap:12px;align-items:flex-start;">
         <div>
           <label class="field-label">Emoji</label>
@@ -1146,7 +1096,7 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
   <div class="sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="projectSheetTitle">New Project</div>
-    <div class="sheet-body">
+    <div class="sheet-body" id="projectFormFields">
       <div class="field">
         <label class="field-label">Name</label>
         <input class="field-input" id="projectName" placeholder="e.g. Lock In, Mazda, Philippines" maxlength="60" onkeydown="if(event.key==='Enter')saveProject()">
@@ -1173,7 +1123,7 @@ textarea.field-input { resize: none; min-height: 72px; line-height: 1.5; }
   <div class="sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="activitySheetTitle">Completed Task</div>
-    <div class="sheet-body">
+    <div class="sheet-body" id="activityFormFields">
       <div class="field">
         <label class="field-label">What did you do?</label>
         <input class="field-input" id="activityTitle" placeholder="e.g. Fixed the login bug" maxlength="200" onkeydown="if(event.key==='Enter')saveActivity()">
@@ -1381,42 +1331,19 @@ function bestStreak(habit){
 }
 
 // ═══════════════════════════════════════════════════
-//  PROGRESS
-// ═══════════════════════════════════════════════════
-function calcTodayProgress(){
-  const vd = viewingDate;
-  const viewDow = (function(){ const d=new Date(vd+'T12:00:00'); return d.getDay(); })();
-  function isHabitScheduledOnVd(h){ return h.repeatType==='daily'||h.repeatDays.includes(viewDow); }
-  const scheduledHabits = habits.filter(h => isHabitScheduledOnVd(h));
-  const doneHabits = scheduledHabits.filter(h => habitCompletedOn(h.id, vd));
-  const dueTasks = tasks.filter(tk => tk.dueDate===vd && !tk.completed);
-  const doneTasks = tasks.filter(tk => tk.dueDate===vd && tk.completed);
-  const total = scheduledHabits.length + dueTasks.length + doneTasks.length;
-  const done  = doneHabits.length + doneTasks.length;
-  return { total, done, pct: total ? Math.round(done/total*100) : 0 };
-}
-
-function updateProgress(){
-  const {total, done, pct} = calcTodayProgress();
-  const ring = document.getElementById('progressRing');
-  const circ = 2 * Math.PI * 22;
-  ring.style.strokeDashoffset = circ - (circ * pct / 100);
-  document.getElementById('progressNum').textContent = pct + '%';
-  if(total===0){
-    document.getElementById('progressMain').textContent = 'Nothing scheduled';
-    document.getElementById('progressSub').textContent = 'Tap + to add tasks or habits';
-  } else if(done===total){
-    document.getElementById('progressMain').textContent = '🎉 All done!';
-    document.getElementById('progressSub').textContent = `${done} of ${total} complete`;
-  } else {
-    document.getElementById('progressMain').textContent = `${done} of ${total} complete`;
-    document.getElementById('progressSub').textContent = total-done === 1 ? '1 item remaining' : `${total-done} items remaining`;
-  }
-}
-
-// ═══════════════════════════════════════════════════
 //  TODAY RENDER
 // ═══════════════════════════════════════════════════
+let habitsExpanded = false;
+let activityExpanded = true;
+
+function toggleTodayHabits(){
+  habitsExpanded = !habitsExpanded;
+  renderToday();
+}
+function toggleTodayActivity(){
+  activityExpanded = !activityExpanded;
+  renderTodayActivity();
+}
 function renderToday(){
   const t = today();
   const vd = viewingDate; // may differ from today when browsing history
@@ -1434,6 +1361,7 @@ function renderToday(){
 
   // Habits (scheduled for the viewed date)
   const scheduledHabits = habits.filter(h => isHabitScheduledOn(h));
+  const doneHabitsCount = scheduledHabits.filter(h => habitCompletedOn(h.id, vd)).length;
   const hl = document.getElementById('todayHabitsList');
   hl.innerHTML='';
   if(scheduledHabits.length===0){
@@ -1441,6 +1369,11 @@ function renderToday(){
   } else {
     scheduledHabits.forEach(h => hl.appendChild(makeHabitRow(h, vd)));
   }
+  document.getElementById('todayHabitsSummary').textContent = scheduledHabits.length
+    ? `Habits · ${doneHabitsCount}/${scheduledHabits.length}`
+    : 'Habits';
+  document.getElementById('todayHabitsArrow').classList.toggle('open', habitsExpanded);
+  hl.style.display = habitsExpanded ? '' : 'none';
 
   // Pinned tasks — only show on today view
   const pinned = isViewingToday ? tasks.filter(tk => tk.pinned && !tk.completed) : [];
@@ -1452,18 +1385,6 @@ function renderToday(){
     pinned.forEach(tk => pinnedList.appendChild(makeTaskRow(tk)));
   } else {
     pinnedSec.style.display='none';
-  }
-
-  // Overdue — only on today view
-  const overdue = isViewingToday ? tasks.filter(tk => isOverdue(tk.dueDate) && !tk.completed) : [];
-  const overdueSec = document.getElementById('todayOverdueSection');
-  const overdueList = document.getElementById('todayOverdueList');
-  if(overdue.length){
-    overdueSec.style.display='';
-    overdueList.innerHTML='';
-    overdue.forEach(tk => overdueList.appendChild(makeTaskRow(tk)));
-  } else {
-    overdueSec.style.display='none';
   }
 
   // Tasks for viewed date
@@ -1481,10 +1402,9 @@ function renderToday(){
     viewedTasks.filter(tk=>tk.completed).forEach(tk=>todayList.appendChild(makeTaskRow(tk)));
   } else {
     todaySec.style.display='none';
-    todayEmpty.style.display=(scheduledHabits.length===0 && pinned.length===0 && overdue.length===0)?'':'none';
+    todayEmpty.style.display=(scheduledHabits.length===0 && pinned.length===0)?'':'none';
   }
 
-  updateProgress();
   renderTodayActivity();
 }
 
@@ -1527,10 +1447,12 @@ function renderTodayActivity(){
   list.innerHTML='';
   if(!entries.length){
     empty.style.display='';
-    return;
+  } else {
+    empty.style.display='none';
+    entries.forEach(a => list.appendChild(makeActivityEntry(a)));
   }
-  empty.style.display='none';
-  entries.forEach(a => list.appendChild(makeActivityEntry(a)));
+  document.getElementById('todayActivityArrow').classList.toggle('open', activityExpanded);
+  document.getElementById('todayActivityBody').style.display = activityExpanded ? '' : 'none';
 }
 
 function makeActivityEntry(a){
@@ -1683,7 +1605,6 @@ function toggleHabit(id, el, onDate){
   }
   saveAll();
   renderToday();
-  updateProgress();
   renderHabits();
 }
 
@@ -1801,11 +1722,9 @@ function toggleDetailCompleted(){
 }
 function openAddTaskInProject(){
   addTaskProjectId=detailProjectId;
-  resetTaskSheet();
-  document.getElementById('taskSheetTitle').textContent='New Task';
-  document.getElementById('taskSaveBtn').textContent='Add Task';
-  renderTaskProjectSelect();
-  openSheet('sheetTask');
+  createPrevTab='project-detail';
+  switchTab('create');
+  selectCreateType('task');
 }
 function openEditProject(){
   if(detailProjectId) openEditProjectById(detailProjectId);
@@ -1921,10 +1840,11 @@ function renderInbox(){
 // ═══════════════════════════════════════════════════
 //  TABS
 // ═══════════════════════════════════════════════════
-const TABS = ['today','projects','project-detail','habits','inbox'];
+const TABS = ['today','projects','project-detail','habits','inbox','create'];
 const NAV_TABS = ['today','projects','habits','inbox'];
 
 function switchTab(tab){
+  if(activeTab==='create' && tab!=='create') returnFormFieldsHome();
   activeTab=tab;
   TABS.forEach(t=>{
     document.getElementById('screen-'+t)?.classList.toggle('active',t===tab);
@@ -1939,23 +1859,56 @@ function switchTab(tab){
 }
 
 // ═══════════════════════════════════════════════════
-//  FAB
+//  CREATE PAGE (full-page add flow)
 // ═══════════════════════════════════════════════════
-let fabOpen=false;
-function toggleFab(){
-  fabOpen=!fabOpen;
-  document.getElementById('fabDial').classList.toggle('open',fabOpen);
-  document.getElementById('fabBackdrop').classList.toggle('open',fabOpen);
-  const fab=document.getElementById('navFab');
-  fab.querySelector('svg').style.transform=fabOpen?'rotate(45deg)':'rotate(0deg)';
-  fab.querySelector('svg').style.transition='transform 0.25s cubic-bezier(0.34,1.56,0.64,1)';
+// Each type's form fields live permanently inside its edit sheet (so editing
+// keeps working untouched); creating just borrows the same DOM node onto this
+// page for the duration of the flow, then hands it back.
+const CREATE_TYPES = {
+  task:     { fieldsId:'taskFormFields',     sheetId:'sheetTask',     reset:resetTaskSheet,    save:saveTask,     saveLabel:'Add Task' },
+  habit:    { fieldsId:'habitFormFields',    sheetId:'sheetHabit',    reset:resetHabitSheet,   save:saveHabit,    saveLabel:'Add Habit' },
+  project:  { fieldsId:'projectFormFields',  sheetId:'sheetProject',  reset:resetProjectSheet, save:saveProject,  saveLabel:'Create Project' },
+  activity: { fieldsId:'activityFormFields', sheetId:'sheetActivity', reset:resetActivityFields, save:saveActivity, saveLabel:'Save' },
+};
+let createPrevTab = 'today';
+
+function returnFormFieldsHome(){
+  Object.values(CREATE_TYPES).forEach(cfg=>{
+    const fieldsEl = document.getElementById(cfg.fieldsId);
+    const titleEl = document.querySelector(`#${cfg.sheetId} .sheet-title`);
+    if(fieldsEl && titleEl) titleEl.insertAdjacentElement('afterend', fieldsEl);
+  });
 }
-function closeFab(){
-  fabOpen=false;
-  document.getElementById('fabDial').classList.remove('open');
-  document.getElementById('fabBackdrop').classList.remove('open');
-  const fab=document.getElementById('navFab');
-  fab.querySelector('svg').style.transform='rotate(0deg)';
+
+function resetCreatePage(){
+  returnFormFieldsHome();
+  document.getElementById('createTypePicker').style.display='';
+  document.getElementById('createFormSlot').style.display='none';
+  document.getElementById('createFormActions').style.display='none';
+}
+
+function openCreatePage(){
+  createPrevTab = (activeTab==='create') ? (createPrevTab||'today') : activeTab;
+  switchTab('create');
+  resetCreatePage();
+}
+
+function returnFromCreatePage(){
+  switchTab(createPrevTab || 'today');
+  if(createPrevTab==='project-detail') renderProjectDetail();
+}
+
+function selectCreateType(type){
+  const cfg = CREATE_TYPES[type];
+  if(!cfg) return;
+  cfg.reset();
+  document.getElementById('createFormSlot').appendChild(document.getElementById(cfg.fieldsId));
+  document.getElementById('createTypePicker').style.display='none';
+  document.getElementById('createFormSlot').style.display='';
+  document.getElementById('createFormActions').style.display='flex';
+  const saveBtn=document.getElementById('createSaveBtn');
+  saveBtn.textContent=cfg.saveLabel;
+  saveBtn.onclick=()=>{ if(cfg.save()!==false) returnFromCreatePage(); };
 }
 
 // ═══════════════════════════════════════════════════
@@ -1997,15 +1950,6 @@ function resetTaskSheet(){
     c.classList.toggle('active', c.dataset.due==='none');
   });
   renderTaskProjectSelect();
-}
-
-function openNewTask(){
-  resetTaskSheet();
-  addTaskProjectId=null;
-  document.getElementById('taskSheetTitle').textContent='New Task';
-  document.getElementById('taskSaveBtn').textContent='Add Task';
-  renderTaskProjectSelect();
-  openSheet('sheetTask');
 }
 
 function openEditTask(id){
@@ -2076,11 +2020,11 @@ function getDueDateISO(){
 
 function saveTask(){
   const title=document.getElementById('taskTitle').value.trim();
-  if(!title){ document.getElementById('taskTitle').focus(); return; }
+  if(!title){ document.getElementById('taskTitle').focus(); return false; }
   if(selectedDue==='scheduled' && !scheduledDate){
     showToast('Pick a date first');
     document.getElementById('scheduledDateInput').focus();
-    return;
+    return false;
   }
   const dueDate=getDueDateISO();
   const description=document.getElementById('taskDesc').value.trim();
@@ -2217,9 +2161,9 @@ document.querySelectorAll('.day-chip').forEach(c=>{
 
 function saveHabit(){
   const name=document.getElementById('habitName').value.trim();
-  if(!name){ document.getElementById('habitName').focus(); return; }
+  if(!name){ document.getElementById('habitName').focus(); return false; }
   if(selectedRepeatType==='custom'&&!selectedRepeatDays.length){
-    showToast('Pick at least one day'); return;
+    showToast('Pick at least one day'); return false;
   }
   if(editHabitId){
     const h=habits.find(h=>h.id===editHabitId);
@@ -2277,7 +2221,7 @@ function pickProjectColor(c,el){
 
 function saveProject(){
   const name=document.getElementById('projectName').value.trim();
-  if(!name){ document.getElementById('projectName').focus(); return; }
+  if(!name){ document.getElementById('projectName').focus(); return false; }
   if(editProjectId){
     const p=projects.find(p=>p.id===editProjectId);
     if(p){ p.name=name; p.color=selectedProjectColor; }
@@ -2304,11 +2248,9 @@ function deleteProject(){
 let editActivityId = null;
 let activityProjectId = null;
 
-function openNewActivity(){
+function resetActivityFields(){
   editActivityId = null;
   activityProjectId = null;
-  document.getElementById('activitySheetTitle').textContent = 'Completed Task';
-  document.getElementById('activitySaveBtn').textContent = 'Save';
   document.getElementById('activityTitle').value = '';
   document.getElementById('activityDesc').value = '';
   document.getElementById('activityDeleteWrap').style.display = 'none';
@@ -2317,7 +2259,6 @@ function openNewActivity(){
   const now = new Date();
   document.getElementById('activityTime').value = String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
   renderActivityProjectSelect();
-  openSheet('sheetActivity');
 }
 
 function openEditActivity(id){
@@ -2356,7 +2297,7 @@ function renderActivityProjectSelect(){
 
 function saveActivity(){
   const title = document.getElementById('activityTitle').value.trim();
-  if(!title){ document.getElementById('activityTitle').focus(); return; }
+  if(!title){ document.getElementById('activityTitle').focus(); return false; }
   const description = document.getElementById('activityDesc').value.trim();
   const dateVal = document.getElementById('activityDate').value || viewingDate;
   const timeVal = document.getElementById('activityTime').value || '00:00';
@@ -2487,7 +2428,7 @@ function hexA(hex,a){ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3
 // ═══════════════════════════════════════════════════
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
-    closeFab();
+    if(activeTab==='create') returnFromCreatePage();
     ['sheetTask','sheetHabit','sheetProject','sheetActivity'].forEach(closeSheet);
   }
   if((e.key==='Enter'||e.key===' ') && e.target.matches('[role="button"]')){
@@ -2495,14 +2436,6 @@ document.addEventListener('keydown',e=>{
     e.target.click();
   }
 });
-
-// ═══════════════════════════════════════════════════
-//  GLOBAL LISTENERS FOR SHEET OPEN
-// ═══════════════════════════════════════════════════
-// Override FAB items to reset forms
-document.querySelector('[onclick*="sheetTask"]').addEventListener('click',()=>{ resetTaskSheet(); openSheet('sheetTask'); },true);
-document.querySelector('[onclick*="sheetHabit"]').addEventListener('click',()=>{ resetHabitSheet(); openSheet('sheetHabit'); },true);
-document.querySelector('[onclick*="sheetProject"]').addEventListener('click',()=>{ resetProjectSheet(); openSheet('sheetProject'); },true);
 
 // midnight check every minute
 setInterval(checkMidnightReset,60000);
