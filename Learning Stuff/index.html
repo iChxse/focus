@@ -1,0 +1,2040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Focus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+
+/* ─────────────────────────────────────────
+   DESIGN TOKENS
+───────────────────────────────────────── */
+:root {
+  --bg:         #111318;
+  --surf-1:     #18191E;
+  --surf-2:     #1F2028;
+  --surf-3:     #262830;
+  --border:     #2C2E38;
+  --border-2:   #363844;
+  --text:       #FAFAF9;
+  --text-2:     #9B9DAE;
+  --text-3:     #52546A;
+  --accent:     #34D399;
+  --accent-dim: rgba(52,211,153,0.12);
+  --red:        #F87171;
+  --red-dim:    rgba(248,113,113,0.1);
+  --amber:      #FBBF24;
+  --r-sm: 8px;
+  --r:    12px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --nav-h: 76px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+/* ─────────────────────────────────────────
+   RESET
+───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, textarea { font-family: inherit; color: inherit; }
+
+/* ─────────────────────────────────────────
+   APP SHELL
+───────────────────────────────────────── */
+.app {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* ─────────────────────────────────────────
+   SCREENS
+───────────────────────────────────────── */
+.screen {
+  display: none;
+  flex-direction: column;
+  min-height: 100vh;
+  padding-bottom: calc(var(--nav-h) + 32px + var(--safe-b));
+}
+.screen.active { display: flex; }
+
+/* ─────────────────────────────────────────
+   DAY HEADER
+───────────────────────────────────────── */
+.day-header {
+  padding: 56px 24px 20px;
+}
+
+.day-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.day-date {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text);
+  margin-bottom: 20px;
+}
+
+/* Day tabs — Today / Tomorrow */
+.day-tabs {
+  display: flex;
+  gap: 6px;
+}
+.day-tab {
+  padding: 7px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: transparent;
+  border: 1.5px solid var(--border);
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.day-tab:hover { color: var(--text-2); border-color: var(--border-2); }
+.day-tab.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* Nav arrows for past days */
+.day-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.day-nav-arrow {
+  width: 28px; height: 28px;
+  border-radius: var(--r-sm);
+  background: var(--surf-2);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.day-nav-arrow:hover { background: var(--surf-3); color: var(--text-2); }
+.day-nav-arrow:disabled { opacity: 0.3; cursor: default; }
+.day-nav-label {
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 500;
+}
+.day-nav-back-btn {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: none;
+  border-radius: 20px;
+  padding: 4px 10px;
+  cursor: pointer;
+  display: none;
+}
+.day-nav-back-btn.visible { display: block; }
+
+/* ─────────────────────────────────────────
+   PROGRESS BAR
+───────────────────────────────────────── */
+.progress-wrap {
+  padding: 0 24px 4px;
+}
+.progress-bar-track {
+  height: 3px;
+  background: var(--surf-2);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+  width: 0%;
+}
+.progress-text {
+  font-size: 12px;
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+/* ─────────────────────────────────────────
+   TASK LIST
+───────────────────────────────────────── */
+.tasks-section {
+  padding: 8px 24px 0;
+  flex: 1;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 20px 0 12px;
+}
+
+/* Individual task row */
+.task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.task-row:last-of-type { border-bottom: none; }
+.task-row:active { opacity: 0.6; }
+
+/* Checkbox circle */
+.task-circle {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border-2);
+  flex-shrink: 0;
+  margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+.task-row.done .task-circle {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.task-circle-check {
+  display: none;
+  color: #0a1a12;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+.task-row.done .task-circle-check { display: block; }
+
+/* Task text */
+.task-body { flex: 1; min-width: 0; }
+.task-title {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1.35;
+  transition: color 0.15s;
+}
+.task-row.done .task-title {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--text-3);
+}
+.task-desc {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+/* Drag handle */
+.task-drag {
+  color: var(--text-3);
+  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  cursor: grab;
+  padding: 4px 2px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.task-row:hover .task-drag { opacity: 1; }
+
+/* Add task button */
+.add-task-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0;
+  color: var(--text-3);
+  font-size: 15px;
+  font-weight: 400;
+  cursor: pointer;
+  width: 100%;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s;
+}
+.add-task-btn:hover { color: var(--text-2); }
+.add-task-plus {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border-2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.add-task-btn:hover .add-task-plus { border-color: var(--text-3); }
+
+/* ─────────────────────────────────────────
+   EMPTY STATE
+───────────────────────────────────────── */
+.empty-state {
+  padding: 48px 0 24px;
+  text-align: center;
+}
+.empty-state-text {
+  font-size: 15px;
+  color: var(--text-3);
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* ─────────────────────────────────────────
+   WRAP UP SECTION
+───────────────────────────────────────── */
+.wrapup {
+  margin: 32px 24px 0;
+  padding: 20px;
+  background: var(--surf-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+}
+.wrapup-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 14px;
+}
+.wrapup-summary {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-2);
+  margin-bottom: 18px;
+}
+.wrapup-summary span { color: var(--accent); font-weight: 700; }
+
+/* Rating */
+.rating-label {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.rating-stars {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.rating-star {
+  width: 36px; height: 36px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 14px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.rating-star:hover { border-color: var(--amber); color: var(--amber); }
+.rating-star.selected { border-color: var(--amber); background: rgba(251,191,36,0.12); color: var(--amber); }
+
+/* Note */
+.wrapup-note {
+  width: 100%;
+  background: var(--surf-2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  padding: 11px 14px;
+  color: var(--text);
+  font-size: 14px;
+  resize: none;
+  min-height: 72px;
+  outline: none;
+  transition: border-color 0.15s;
+  margin-bottom: 14px;
+}
+.wrapup-note:focus { border-color: var(--accent); }
+.wrapup-note::placeholder { color: var(--text-3); }
+
+.plan-tomorrow-btn {
+  width: 100%;
+  padding: 13px;
+  background: var(--accent);
+  color: #0a1a12;
+  font-size: 15px;
+  font-weight: 700;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.plan-tomorrow-btn:hover { background: #5ce8ad; }
+.plan-tomorrow-btn:active { transform: scale(0.98); }
+
+/* ─────────────────────────────────────────
+   BOTTOM NAV
+───────────────────────────────────────── */
+.nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  background: rgba(17,19,24,0.94);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-bottom: var(--safe-b);
+  z-index: 100;
+}
+/* Center nav content within app max-width */
+.nav-inner {
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+}
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 72px;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+.nav-item:hover { color: var(--text-2); }
+.nav-item.active { color: var(--accent); }
+
+/* FAB */
+.nav-fab {
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(52,211,153,0.35);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+  flex-shrink: 0;
+}
+.nav-fab:hover { transform: scale(1.07); box-shadow: 0 6px 28px rgba(52,211,153,0.45); }
+.nav-fab:active { transform: scale(0.96); }
+.nav-fab-icon {
+  color: #0a1a12;
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1;
+  margin-top: -1px;
+}
+
+/* ─────────────────────────────────────────
+   BOTTOM SHEET (modal)
+───────────────────────────────────────── */
+.sheet-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 200;
+  align-items: flex-end;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.sheet-overlay.open { display: flex; }
+
+.sheet {
+  background: var(--surf-1);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  border-top: 1px solid var(--border-2);
+  width: 100%;
+  max-width: 430px;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding-bottom: calc(24px + var(--safe-b));
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
+}
+.sheet-overlay.open .sheet { transform: translateY(0); }
+
+.sheet-handle {
+  width: 36px; height: 4px;
+  background: var(--border-2);
+  border-radius: 2px;
+  margin: 12px auto 4px;
+}
+.sheet-title {
+  font-size: 17px; font-weight: 700;
+  padding: 10px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sheet-body { padding: 16px 20px; }
+
+/* Form fields */
+.field { margin-bottom: 14px; }
+.field-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+  text-transform: uppercase; color: var(--text-3);
+  margin-bottom: 7px; display: block;
+}
+.field-input {
+  width: 100%;
+  background: var(--surf-2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(52,211,153,0.1);
+}
+.field-input::placeholder { color: var(--text-3); }
+textarea.field-input { resize: none; min-height: 80px; line-height: 1.5; }
+
+/* Sheet action buttons */
+.sheet-actions {
+  display: flex; gap: 10px;
+  padding: 4px 20px 0;
+}
+.btn-cancel {
+  flex: 1; padding: 13px;
+  border-radius: var(--r);
+  background: var(--surf-2); border: 1px solid var(--border);
+  color: var(--text-2); font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-cancel:hover { background: var(--surf-3); }
+.btn-save {
+  flex: 2; padding: 13px;
+  border-radius: var(--r);
+  background: var(--accent);
+  color: #0a1a12; font-size: 15px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+}
+.btn-save:hover { background: #5ce8ad; }
+.btn-save:active { transform: scale(0.98); }
+.btn-delete {
+  width: 100%; padding: 13px;
+  border-radius: var(--r);
+  background: var(--red-dim);
+  color: var(--red); font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+  margin: 0 20px 12px;
+  width: calc(100% - 40px);
+}
+.btn-delete:hover { background: rgba(248,113,113,0.18); }
+
+/* ─────────────────────────────────────────
+   TOAST
+───────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: calc(var(--nav-h) + 12px + var(--safe-b));
+  left: 50%; transform: translateX(-50%) translateY(16px);
+  background: var(--surf-2);
+  border: 1px solid var(--border-2);
+  color: var(--text);
+  font-size: 13px; font-weight: 500;
+  padding: 10px 18px; border-radius: 40px;
+  z-index: 300; white-space: nowrap;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ─────────────────────────────────────────
+   PROJECTS SCREEN
+───────────────────────────────────────── */
+.screen-header {
+  padding: 56px 24px 16px;
+}
+.screen-title {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+.screen-body {
+  padding: 0 24px;
+  flex: 1;
+}
+
+.project-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.project-card:last-of-type { border-bottom: none; }
+.project-card:active { opacity: 0.6; }
+.project-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.project-card-info { flex: 1; min-width: 0; }
+.project-card-name {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text);
+}
+.project-card-count {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.project-card-arrow {
+  color: var(--text-3);
+  font-size: 20px;
+}
+
+/* Add project button */
+.add-project-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0;
+  color: var(--text-3);
+  font-size: 15px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.add-project-btn:hover { color: var(--text-2); }
+
+/* Project detail back button */
+.detail-back {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 52px 24px 8px;
+}
+.detail-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+.detail-project-name {
+  font-size: 22px;
+  font-weight: 700;
+  padding: 0 24px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Color swatches */
+.color-swatches {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.color-swatch {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2.5px solid transparent;
+  transition: all 0.15s;
+}
+.color-swatch.selected {
+  border-color: var(--text);
+  transform: scale(1.2);
+}
+
+/* ─────────────────────────────────────────
+   FAB DIAL
+───────────────────────────────────────── */
+.fab-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  z-index: 140;
+}
+.fab-backdrop.open { display: block; }
+
+.fab-dial {
+  position: fixed;
+  bottom: calc(var(--nav-h) + 12px + var(--safe-b));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  z-index: 150;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s;
+  width: 100%;
+  max-width: 430px;
+  padding-right: 24px;
+}
+.fab-dial.open { opacity: 1; pointer-events: all; }
+
+.fab-dial-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: dialIn 0.2s ease both;
+  cursor: pointer;
+}
+.fab-dial-item:nth-child(1) { animation-delay: 0.04s; }
+.fab-dial-item:nth-child(2) { animation-delay: 0.02s; }
+.fab-dial-item:nth-child(3) { animation-delay: 0s; }
+@keyframes dialIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fab-dial-label {
+  background: var(--surf-2);
+  border: 1px solid var(--border-2);
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.fab-dial-label:hover { background: var(--surf-3); }
+.fab-dial-icon {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--surf-2);
+  border: 1px solid var(--border-2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* Project picker inside sheet */
+.project-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.project-pick-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: var(--r);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  width: 100%;
+  text-align: left;
+}
+.project-pick-item:hover { border-color: var(--border-2); background: var(--surf-2); }
+.project-pick-item.selected { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+
+
+/* ─────────────────────────────────────────
+   CAPTURE MODAL (fullscreen)
+───────────────────────────────────────── */
+.capture-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 300;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.capture-modal.open { display: flex; }
+
+.capture-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 56px 24px 20px;
+}
+.capture-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.capture-close {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--surf-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 18px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.capture-close:hover { background: var(--surf-3); color: var(--text); }
+
+.capture-body {
+  padding: 0 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.capture-dest-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 8px;
+  display: block;
+}
+.capture-dest-options { display: flex; flex-direction: column; gap: 8px; }
+.capture-dest-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--r);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  width: 100%;
+}
+.capture-dest-btn:hover { border-color: var(--border-2); color: var(--text); background: var(--surf-1); }
+.capture-dest-btn.selected { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+.capture-dest-icon { font-size: 20px; flex-shrink: 0; width: 28px; text-align: center; }
+.capture-dest-info { flex: 1; }
+.capture-dest-name { font-size: 15px; font-weight: 600; }
+.capture-dest-sub  { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.capture-dest-btn.selected .capture-dest-sub { color: rgba(52,211,153,0.7); }
+
+.capture-sub-opts {
+  padding: 8px 0 4px 56px;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+}
+.capture-sub-opts.visible { display: flex; }
+.capture-day-chips { display: flex; gap: 8px; }
+
+.capture-footer {
+  padding: 20px 24px calc(24px + var(--safe-b));
+}
+.capture-save-btn {
+  width: 100%;
+  padding: 15px;
+  border-radius: var(--r);
+  background: var(--accent);
+  color: #0a1a12;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.capture-save-btn:hover { background: #5ce8ad; }
+.capture-save-btn:active { transform: scale(0.98); }
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ══════════════════════════
+       MAIN DAY SCREEN
+  ══════════════════════════ -->
+  <div class="screen active" id="screen-day">
+
+    <!-- Header -->
+    <div class="day-header">
+      <div class="day-label" id="dayLabel">Today</div>
+      <div class="day-date" id="dayDate"></div>
+
+      <!-- Today / Tomorrow tabs -->
+      <div class="day-tabs">
+        <button class="day-tab active" id="tabToday" onclick="goToday()">Today</button>
+        <button class="day-tab" id="tabTomorrow" onclick="goTomorrow()">Tomorrow</button>
+      </div>
+
+      <!-- Past day navigation -->
+      <div class="day-nav">
+        <button class="day-nav-arrow" id="navPrev" onclick="shiftDay(-1)">‹</button>
+        <button class="day-nav-arrow" id="navNext" onclick="shiftDay(1)">›</button>
+        <span class="day-nav-label" id="navLabel"></span>
+        <button class="day-nav-back-btn" id="navBackBtn" onclick="goToday()">Back to Today</button>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-text" id="progressText"></div>
+    </div>
+
+    <!-- Tasks -->
+    <div class="tasks-section">
+      <div class="section-label" id="taskSectionLabel">Plan</div>
+      <div id="taskList"></div>
+      <button class="add-task-btn" id="addTaskBtn" onclick="openAddTask()">
+        <span class="add-task-plus">+</span>
+        <span>Add task</span>
+      </button>
+      <div class="empty-state" id="emptyState" style="display:none;">
+        <div class="empty-state-text">Nothing planned yet.<br>Tap + Add task to get started.</div>
+      </div>
+    </div>
+
+    <!-- Wrap Up (today only) -->
+    <div class="wrapup" id="wrapupSection">
+      <div class="wrapup-title">Wrap Up</div>
+      <div class="wrapup-summary" id="wrapupSummary"></div>
+      <div class="rating-label">How was today?</div>
+      <div class="rating-stars" id="ratingStars"></div>
+      <textarea class="wrapup-note" id="wrapupNote" placeholder="Anything worth remembering?" rows="3"></textarea>
+      <button class="plan-tomorrow-btn" onclick="goTomorrow()">
+        Plan Tomorrow →
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ══════════════════════════
+       PROJECTS SCREEN
+  ══════════════════════════ -->
+  <div class="screen" id="screen-projects">
+    <div class="screen-header">
+      <div class="screen-title">Projects</div>
+    </div>
+    <div class="screen-body">
+      <div id="projectsList"></div>
+      <button class="add-project-btn" onclick="openAddProject()">
+        <span class="add-task-plus">+</span>
+        New project
+      </button>
+      <div class="empty-state" id="projectsEmpty" style="display:none;">
+        <div class="empty-state-text">No projects yet.<br>Tap + to create one.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════
+       PROJECT DETAIL SCREEN
+  ══════════════════════════ -->
+  <div class="screen" id="screen-project-detail">
+    <div class="detail-back">
+      <button class="detail-back-btn" onclick="switchTab('projects')">‹ Projects</button>
+    </div>
+    <div class="detail-project-name" id="detailProjectName"></div>
+    <div class="tasks-section">
+      <div id="projectTaskList"></div>
+      <button class="add-task-btn" onclick="openAddProjectTask()">
+        <span class="add-task-plus">+</span>
+        <span>Add task</span>
+      </button>
+      <div class="empty-state" id="projectTasksEmpty" style="display:none;">
+        <div class="empty-state-text">No tasks yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════
+       IDEAS SCREEN
+  ══════════════════════════ -->
+  <div class="screen" id="screen-ideas">
+    <div class="screen-header">
+      <div class="screen-title">Ideas</div>
+      <div style="font-size:13px;color:var(--text-3);margin-top:4px;">Unassigned thoughts, tasks & captures</div>
+    </div>
+    <div class="screen-body">
+      <div id="ideasList"></div>
+      <button class="add-task-btn" onclick="openAddIdea()">
+        <span class="add-task-plus">+</span>
+        <span>Capture idea</span>
+      </button>
+      <div class="empty-state" id="ideasEmpty" style="display:none;">
+        <div class="empty-state-text">Nothing here yet.<br>Tap + to capture a thought.</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.app -->
+
+<!-- BOTTOM NAV -->
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-item active" id="nav-day" onclick="switchTab('day')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      Day
+    </div>
+    <div class="nav-item" id="nav-projects" onclick="switchTab('projects')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 6h18M3 12h18M3 18h12"/>
+      </svg>
+      Projects
+    </div>
+    <div class="nav-fab" id="navFab" onclick="openCapture()">
+      <span class="nav-fab-icon" id="fabIcon">+</span>
+    </div>
+    <div class="nav-item" id="nav-ideas" onclick="switchTab('ideas')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/>
+      </svg>
+      Ideas
+    </div>
+    <div class="nav-item" id="nav-more" style="opacity:0;pointer-events:none;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
+      </svg>
+      More
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════
+     SHEET: ADD / EDIT TASK
+══════════════════════════ -->
+<div class="sheet-overlay" id="sheetTask" onclick="sheetBgClick(event,'sheetTask')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="sheetTaskTitle">New Task</div>
+    <div class="sheet-body">
+      <div class="field">
+        <input class="field-input" id="inputTaskTitle" placeholder="What needs to be done?"
+          maxlength="200" onkeydown="if(event.key==='Enter')saveTask()">
+      </div>
+      <div class="field">
+        <textarea class="field-input" id="inputTaskDesc" placeholder="Details (optional)" rows="3"></textarea>
+      </div>
+    </div>
+    <div id="deleteTaskWrap" style="display:none; padding: 0 20px 12px;">
+      <button class="btn-delete" onclick="deleteTask()">Delete Task</button>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeSheet('sheetTask')">Cancel</button>
+      <button class="btn-save" onclick="saveTask()" id="btnSaveTask">Add Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════
+     SHEET: ADD / EDIT PROJECT
+══════════════════════════ -->
+<div class="sheet-overlay" id="sheetProject" onclick="sheetBgClick(event,'sheetProject')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="sheetProjectTitle">New Project</div>
+    <div class="sheet-body">
+      <div class="field">
+        <label class="field-label">Name</label>
+        <input class="field-input" id="inputProjectName" placeholder="e.g. Mazda, Philippines…"
+          maxlength="60" onkeydown="if(event.key==='Enter')saveProject()">
+      </div>
+      <div class="field">
+        <label class="field-label">Color</label>
+        <div class="color-swatches" id="colorSwatches"></div>
+      </div>
+    </div>
+    <div id="deleteProjectWrap" style="display:none; padding: 0 20px 12px;">
+      <button class="btn-delete" onclick="deleteProject()">Delete Project</button>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeSheet('sheetProject')">Cancel</button>
+      <button class="btn-save" onclick="saveProject()" id="btnSaveProject">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════
+     SHEET: ADD TASK → PICK DAY
+══════════════════════════ -->
+<div class="sheet-overlay" id="sheetTaskDay" onclick="sheetBgClick(event,'sheetTaskDay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Add to Day</div>
+    <div class="sheet-body">
+      <div class="field">
+        <input class="field-input" id="inputDayTaskTitle" placeholder="What needs to be done?"
+          maxlength="200" onkeydown="if(event.key==='Enter')saveDayTask()">
+      </div>
+      <div class="field">
+        <textarea class="field-input" id="inputDayTaskDesc" placeholder="Details (optional)" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">When</label>
+        <div style="display:flex;gap:8px;">
+          <button class="day-tab active" id="dayPickToday" onclick="selectDayPick('today',this)">Today</button>
+          <button class="day-tab" id="dayPickTomorrow" onclick="selectDayPick('tomorrow',this)">Tomorrow</button>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeSheet('sheetTaskDay')">Cancel</button>
+      <button class="btn-save" onclick="saveDayTask()">Add Task</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════
+     SHEET: ADD TASK → PICK PROJECT
+══════════════════════════ -->
+<div class="sheet-overlay" id="sheetTaskProject" onclick="sheetBgClick(event,'sheetTaskProject')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Add to Project</div>
+    <div class="sheet-body">
+      <div class="field">
+        <input class="field-input" id="inputProjTaskTitle" placeholder="What needs to be done?"
+          maxlength="200" onkeydown="if(event.key==='Enter')saveProjectTask()">
+      </div>
+      <div class="field">
+        <textarea class="field-input" id="inputProjTaskDesc" placeholder="Details (optional)" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label class="field-label">Project</label>
+        <div class="project-pick-list" id="projectPickList"></div>
+      </div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeSheet('sheetTaskProject')">Cancel</button>
+      <button class="btn-save" onclick="saveProjectTask()">Add Task</button>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- ══════════════════════════
+     CAPTURE MODAL (fullscreen)
+══════════════════════════ -->
+<div class="capture-modal" id="captureModal">
+  <div class="capture-header">
+    <div class="capture-title">New</div>
+    <button class="capture-close" onclick="closeCapture()">×</button>
+  </div>
+  <div class="capture-body">
+    <div class="field">
+      <input class="field-input" id="captureTitle" placeholder="What's on your mind?"
+        maxlength="200" onkeydown="if(event.key==='Enter')document.getElementById('captureDesc').focus()">
+    </div>
+    <div class="field">
+      <textarea class="field-input" id="captureDesc" placeholder="Details (optional)" rows="3"></textarea>
+    </div>
+    <div class="field">
+      <label class="capture-dest-label">Where does this go?</label>
+      <div class="capture-dest-options">
+
+        <div>
+          <button class="capture-dest-btn selected" id="destIdea" onclick="selectDest('idea')">
+            <span class="capture-dest-icon">💡</span>
+            <div class="capture-dest-info">
+              <div class="capture-dest-name">Ideas</div>
+              <div class="capture-dest-sub">Save for later, no date needed</div>
+            </div>
+          </button>
+        </div>
+
+        <div>
+          <button class="capture-dest-btn" id="destDay" onclick="selectDest('day')">
+            <span class="capture-dest-icon">📅</span>
+            <div class="capture-dest-info">
+              <div class="capture-dest-name">Day</div>
+              <div class="capture-dest-sub">Add to Today or Tomorrow</div>
+            </div>
+          </button>
+          <div class="capture-sub-opts" id="subDay">
+            <div class="capture-day-chips">
+              <button class="day-tab active" id="capDayToday" onclick="selectCapDay('today',this)">Today</button>
+              <button class="day-tab" id="capDayTomorrow" onclick="selectCapDay('tomorrow',this)">Tomorrow</button>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <button class="capture-dest-btn" id="destProject" onclick="selectDest('project')">
+            <span class="capture-dest-icon">📁</span>
+            <div class="capture-dest-info">
+              <div class="capture-dest-name">Project</div>
+              <div class="capture-dest-sub">Assign to a project</div>
+            </div>
+          </button>
+          <div class="capture-sub-opts" id="subProject">
+            <div class="project-pick-list" id="captureProjectList"></div>
+            <button class="add-task-btn" style="padding:10px 0;" onclick="openQuickNewProject()">
+              <span class="add-task-plus">+</span>
+              <span style="font-size:13px;">New project</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+  <div class="capture-footer">
+    <button class="capture-save-btn" onclick="saveCapture()">Save</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════
+//  DATE UTILITIES
+// ════════════════════════════════════════════
+
+// Always use local time — never UTC — to avoid midnight date shifts
+function localISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function todayISO()    { return localISO(new Date()); }
+function tomorrowISO() { const d=new Date(); d.setDate(d.getDate()+1); return localISO(d); }
+
+function shiftISO(iso, delta) {
+  const d = new Date(iso + 'T12:00:00'); // noon avoids DST edge cases
+  d.setDate(d.getDate() + delta);
+  return localISO(d);
+}
+
+function formatDate(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+}
+
+function formatDateShort(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+// ════════════════════════════════════════════
+//  PERSISTENCE
+// ════════════════════════════════════════════
+
+function ld(key, def) {
+  try { const v = localStorage.getItem(key); return v != null ? JSON.parse(v) : def; }
+  catch { return def; }
+}
+function sv(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+}
+
+// ════════════════════════════════════════════
+//  DATA MODEL
+//
+//  tasks[]  — array of task objects
+//    id, title, description, date (ISO),
+//    completed, completedAt, sortOrder, createdAt
+//
+//  days{}   — keyed by ISO date string
+//    date, rating, note
+//
+// ════════════════════════════════════════════
+
+let tasks = ld('focus_tasks', []);
+let days  = ld('focus_days',  {});
+
+// ════════════════════════════════════════════
+//  APP STATE
+// ════════════════════════════════════════════
+function ensureDay(iso) {
+  if (!days[iso]) days[iso] = { date: iso, rating: null, note: '' };
+}
+
+// Get tasks for a specific date, in sort order
+function tasksForDate(iso) {
+  return tasks
+    .filter(t => t.date === iso)
+    .sort((a,b) => a.sortOrder - b.sortOrder);
+}
+
+// ════════════════════════════════════════════
+//  PROJECTS DATA
+// ════════════════════════════════════════════
+
+const PROJECT_COLORS = [
+  '#60A5FA','#34D399','#F87171','#FBBF24',
+  '#A78BFA','#F472B6','#FB923C','#38BDF8',
+];
+
+let projects = ld('focus_projects', []);
+// Project tasks are stored in the same tasks[] array
+// but with date: null and projectId: set
+
+function saveAll() {
+  sv('focus_tasks',    tasks);
+  sv('focus_days',     days);
+  sv('focus_projects', projects);
+}
+
+function tasksForProject(projectId) {
+  return tasks
+    .filter(t => t.projectId === projectId && !t.date)
+    .sort((a,b) => a.sortOrder - b.sortOrder);
+}
+
+
+
+let viewingDate      = todayISO();
+let editingTaskId    = null;
+let editingProjectId = null;
+let activeTab        = 'day';
+let viewingProjectId = null;
+let selectedDayPick  = 'today';
+let selectedProjTaskProjectId = null;
+let selectedProjectColor = PROJECT_COLORS[0];
+
+// ════════════════════════════════════════════
+//  TAB SWITCHING
+// ════════════════════════════════════════════
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const screenId = tab === 'project-detail' ? 'screen-project-detail' : 'screen-' + tab;
+  document.getElementById(screenId).classList.add('active');
+  ['day','projects','ideas'].forEach(t => {
+    const el = document.getElementById('nav-' + t);
+    if (el) el.classList.toggle('active', t === tab || (t === 'projects' && tab === 'project-detail'));
+  });
+  if (tab === 'projects') renderProjects();
+  if (tab === 'ideas') renderIdeas();
+}
+
+// ════════════════════════════════════════════
+//  CAPTURE MODAL
+// ════════════════════════════════════════════
+
+let captureDest    = 'idea';
+let captureCapDay  = 'today';
+let captureProjectId = null;
+
+function openCapture() {
+  // Reset state
+  captureDest = 'idea';
+  captureCapDay = 'today';
+  captureProjectId = projects.length ? projects[0].id : null;
+
+  document.getElementById('captureTitle').value = '';
+  document.getElementById('captureDesc').value = '';
+
+  // Reset dest buttons
+  ['destIdea','destDay','destProject'].forEach(id => document.getElementById(id).classList.remove('selected'));
+  document.getElementById('destIdea').classList.add('selected');
+  ['subDay','subProject'].forEach(id => document.getElementById(id).classList.remove('visible'));
+
+  // Day chips reset
+  document.getElementById('capDayToday').classList.add('active');
+  document.getElementById('capDayTomorrow').classList.remove('active');
+
+  // Render project lists
+  renderCaptureProjectList();
+
+  document.getElementById('captureModal').classList.add('open');
+  setTimeout(() => document.getElementById('captureTitle').focus(), 100);
+}
+
+function closeCapture() {
+  document.getElementById('captureModal').classList.remove('open');
+}
+
+function selectDest(dest) {
+  captureDest = dest;
+  const idMap = { 'idea':'destIdea', 'day':'destDay', 'project':'destProject' };
+  const subMap = { 'day':'subDay', 'project':'subProject' };
+  Object.values(idMap).forEach(id => document.getElementById(id).classList.remove('selected'));
+  document.getElementById(idMap[dest]).classList.add('selected');
+  Object.values(subMap).forEach(id => document.getElementById(id).classList.remove('visible'));
+  if (subMap[dest]) document.getElementById(subMap[dest]).classList.add('visible');
+}
+
+function selectCapDay(val, btn) {
+  captureCapDay = val;
+  document.getElementById('capDayToday').classList.toggle('active', val === 'today');
+  document.getElementById('capDayTomorrow').classList.toggle('active', val === 'tomorrow');
+}
+
+function renderCaptureProjectList() {
+  const wrap = document.getElementById('captureProjectList');
+  if (!projects.length) {
+    wrap.innerHTML = '<div style="color:var(--text-3);font-size:13px;">No projects yet — create one first.</div>';
+    return;
+  }
+  wrap.innerHTML = '';
+  projects.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'project-pick-item' + (captureProjectId === p.id ? ' selected' : '');
+    btn.innerHTML = `<div style="width:10px;height:10px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>${esc(p.name)}`;
+    btn.onclick = () => { captureProjectId = p.id; renderCaptureProjectList(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function openQuickNewProject() {
+  const name = prompt('Project name:');
+  if (!name || !name.trim()) return;
+  const color = PROJECT_COLORS[projects.length % PROJECT_COLORS.length];
+  const newProj = { id:'p'+Date.now(), name:name.trim(), color, createdAt:new Date().toISOString() };
+  projects.push(newProj);
+  captureProjectId = newProj.id;
+  saveAll();
+  renderCaptureProjectList();
+  showToast(`Project "${newProj.name}" created`);
+}
+
+function saveCapture() {
+  const title = document.getElementById('captureTitle').value.trim();
+  if (!title) { document.getElementById('captureTitle').focus(); return; }
+  const description = document.getElementById('captureDesc').value.trim();
+
+  if (captureDest === 'idea') {
+    tasks.push({ id:'t'+Date.now(), title, description, date:null, projectId:null,
+      completed:false, completedAt:null, sortOrder:Date.now(), createdAt:new Date().toISOString() });
+    showToast('Idea captured');
+
+  } else if (captureDest === 'day') {
+    const date = captureCapDay === 'today' ? todayISO() : tomorrowISO();
+    const existing = tasksForDate(date);
+    const maxOrder = existing.length ? Math.max(...existing.map(t => t.sortOrder)) : 0;
+    tasks.push({ id:'t'+Date.now(), title, description, date, projectId:null,
+      completed:false, completedAt:null, sortOrder:maxOrder+1, createdAt:new Date().toISOString() });
+    showToast(`Added to ${captureCapDay === 'today' ? 'Today' : 'Tomorrow'}`);
+
+  } else if (captureDest === 'project') {
+    if (!captureProjectId) { showToast('Pick a project first'); return; }
+    const existing = tasksForProject(captureProjectId);
+    const maxOrder = existing.length ? Math.max(...existing.map(t => t.sortOrder)) : 0;
+    tasks.push({ id:'t'+Date.now(), title, description, date:null, projectId:captureProjectId,
+      completed:false, completedAt:null, sortOrder:maxOrder+1, createdAt:new Date().toISOString() });
+    showToast('Added to project');
+  }
+
+  saveAll();
+  closeCapture();
+  if (activeTab === 'ideas') renderIdeas();
+  else if (activeTab === 'projects' || activeTab === 'project-detail') { renderProjects(); if(activeTab==='project-detail') renderProjectDetail(); }
+  else render();
+}
+
+
+
+// ════════════════════════════════════════════
+//  PROJECTS — RENDER
+// ════════════════════════════════════════════
+
+function renderProjects() {
+  const list  = document.getElementById('projectsList');
+  const empty = document.getElementById('projectsEmpty');
+  list.innerHTML = '';
+
+  if (!projects.length) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+
+  projects.forEach(p => {
+    const count = tasksForProject(p.id).filter(t => !t.completed).length;
+    const el = document.createElement('div');
+    el.className = 'project-card';
+    el.innerHTML = `
+      <div class="project-dot" style="background:${p.color}"></div>
+      <div class="project-card-info">
+        <div class="project-card-name">${esc(p.name)}</div>
+        <div class="project-card-count">${count} open task${count !== 1 ? 's' : ''}</div>
+      </div>
+      <div class="project-card-arrow">›</div>`;
+    el.addEventListener('click', () => openProjectDetail(p.id));
+    list.appendChild(el);
+  });
+}
+
+// ════════════════════════════════════════════
+//  PROJECT DETAIL
+// ════════════════════════════════════════════
+
+function openProjectDetail(projectId) {
+  viewingProjectId = projectId;
+  const p = projects.find(p => p.id === projectId);
+  if (!p) return;
+  document.getElementById('detailProjectName').innerHTML =
+    `<div class="project-dot" style="background:${p.color}"></div>${esc(p.name)}
+     <button style="margin-left:auto;font-size:13px;color:var(--text-3);padding:4px 10px;border-radius:var(--r-sm);background:var(--surf-2);border:1px solid var(--border);" onclick="openEditProject('${p.id}')">Edit</button>`;
+  renderProjectDetail();
+  switchTab('project-detail');
+}
+
+function renderProjectDetail() {
+  const list  = document.getElementById('projectTaskList');
+  const empty = document.getElementById('projectTasksEmpty');
+  list.innerHTML = '';
+
+  const ptasks = tasksForProject(viewingProjectId);
+  const open   = ptasks.filter(t => !t.completed);
+  const done   = ptasks.filter(t => t.completed);
+
+  if (!ptasks.length) { empty.style.display = ''; }
+  else {
+    empty.style.display = 'none';
+    open.forEach(t => list.appendChild(makeTaskRow(t, true)));
+    if (done.length) {
+      const lbl = document.createElement('div');
+      lbl.className = 'section-label';
+      lbl.style.marginTop = '24px';
+      lbl.textContent = 'Completed';
+      list.appendChild(lbl);
+      done.forEach(t => list.appendChild(makeTaskRow(t, true)));
+    }
+  }
+}
+
+function openAddProjectTask() {
+  // pre-fill the project task sheet with the current project
+  selectedProjTaskProjectId = viewingProjectId;
+  renderProjectPickList();
+  document.getElementById('inputProjTaskTitle').value = '';
+  document.getElementById('inputProjTaskDesc').value = '';
+  openSheet('sheetTaskProject');
+  setTimeout(() => document.getElementById('inputProjTaskTitle').focus(), 350);
+}
+
+// ════════════════════════════════════════════
+//  ADD PROJECT
+// ════════════════════════════════════════════
+
+function openAddProject() {
+  editingProjectId = null;
+  selectedProjectColor = PROJECT_COLORS[0];
+  document.getElementById('sheetProjectTitle').textContent = 'New Project';
+  document.getElementById('btnSaveProject').textContent = 'Create';
+  document.getElementById('inputProjectName').value = '';
+  document.getElementById('deleteProjectWrap').style.display = 'none';
+  renderColorSwatches();
+  openSheet('sheetProject');
+  setTimeout(() => document.getElementById('inputProjectName').focus(), 350);
+}
+
+function openEditProject(id) {
+  const p = projects.find(p => p.id === id);
+  if (!p) return;
+  editingProjectId = id;
+  selectedProjectColor = p.color;
+  document.getElementById('sheetProjectTitle').textContent = 'Edit Project';
+  document.getElementById('btnSaveProject').textContent = 'Save';
+  document.getElementById('inputProjectName').value = p.name;
+  document.getElementById('deleteProjectWrap').style.display = '';
+  renderColorSwatches();
+  openSheet('sheetProject');
+  setTimeout(() => document.getElementById('inputProjectName').focus(), 350);
+}
+
+function renderColorSwatches() {
+  document.getElementById('colorSwatches').innerHTML = PROJECT_COLORS.map(c =>
+    `<div class="color-swatch${c === selectedProjectColor ? ' selected' : ''}"
+      style="background:${c}" onclick="pickColor('${c}',this)"></div>`
+  ).join('');
+}
+
+function pickColor(c, el) {
+  selectedProjectColor = c;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function saveProject() {
+  const name = document.getElementById('inputProjectName').value.trim();
+  if (!name) { document.getElementById('inputProjectName').focus(); return; }
+
+  if (editingProjectId) {
+    const p = projects.find(p => p.id === editingProjectId);
+    if (p) { p.name = name; p.color = selectedProjectColor; }
+    showToast('Project updated');
+  } else {
+    projects.push({ id: 'p' + Date.now(), name, color: selectedProjectColor, createdAt: new Date().toISOString() });
+    showToast('Project created');
+  }
+  saveAll();
+  closeSheet('sheetProject');
+  renderProjects();
+  if (viewingProjectId && editingProjectId === viewingProjectId) openProjectDetail(viewingProjectId);
+}
+
+function deleteProject() {
+  // remove project tasks
+  tasks = tasks.filter(t => t.projectId !== editingProjectId);
+  projects = projects.filter(p => p.id !== editingProjectId);
+  saveAll();
+  closeSheet('sheetProject');
+  switchTab('projects');
+  showToast('Project deleted');
+}
+
+// ════════════════════════════════════════════
+//  FAB DIAL ACTIONS
+// ════════════════════════════════════════════
+
+function openAddTaskToDay() {
+  selectedDayPick = 'today';
+  document.getElementById('inputDayTaskTitle').value = '';
+  document.getElementById('inputDayTaskDesc').value = '';
+  document.getElementById('dayPickToday').classList.add('active');
+  document.getElementById('dayPickTomorrow').classList.remove('active');
+  openSheet('sheetTaskDay');
+  setTimeout(() => document.getElementById('inputDayTaskTitle').focus(), 350);
+}
+
+function selectDayPick(val, btn) {
+  selectedDayPick = val;
+  document.getElementById('dayPickToday').classList.toggle('active', val === 'today');
+  document.getElementById('dayPickTomorrow').classList.toggle('active', val === 'tomorrow');
+}
+
+function saveDayTask() {
+  const title = document.getElementById('inputDayTaskTitle').value.trim();
+  if (!title) { document.getElementById('inputDayTaskTitle').focus(); return; }
+  const description = document.getElementById('inputDayTaskDesc').value.trim();
+  const date = selectedDayPick === 'today' ? todayISO() : tomorrowISO();
+  const existing = tasksForDate(date);
+  const maxOrder = existing.length ? Math.max(...existing.map(t => t.sortOrder)) : 0;
+  tasks.push({ id:'t'+Date.now(), title, description, date, projectId: null,
+    completed:false, completedAt:null, sortOrder:maxOrder+1, createdAt:new Date().toISOString() });
+  saveAll();
+  closeSheet('sheetTaskDay');
+  render();
+  showToast(`Added to ${selectedDayPick === 'today' ? 'Today' : 'Tomorrow'}`);
+}
+
+function openAddTaskToProject() {
+  selectedProjTaskProjectId = projects.length ? projects[0].id : null;
+  document.getElementById('inputProjTaskTitle').value = '';
+  document.getElementById('inputProjTaskDesc').value = '';
+  renderProjectPickList();
+  openSheet('sheetTaskProject');
+  setTimeout(() => document.getElementById('inputProjTaskTitle').focus(), 350);
+}
+
+function renderProjectPickList() {
+  const wrap = document.getElementById('projectPickList');
+  if (!projects.length) {
+    wrap.innerHTML = '<div style="color:var(--text-3);font-size:14px;">No projects yet — create one first.</div>';
+    return;
+  }
+  wrap.innerHTML = '';
+  projects.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'project-pick-item' + (selectedProjTaskProjectId === p.id ? ' selected' : '');
+    btn.innerHTML = `<div style="width:10px;height:10px;border-radius:50%;background:${p.color};flex-shrink:0;"></div>${esc(p.name)}`;
+    btn.onclick = () => { selectedProjTaskProjectId = p.id; renderProjectPickList(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function saveProjectTask() {
+  const title = document.getElementById('inputProjTaskTitle').value.trim();
+  if (!title) { document.getElementById('inputProjTaskTitle').focus(); return; }
+  if (!selectedProjTaskProjectId) { showToast('Pick a project first'); return; }
+  const description = document.getElementById('inputProjTaskDesc').value.trim();
+  const existing = tasksForProject(selectedProjTaskProjectId);
+  const maxOrder = existing.length ? Math.max(...existing.map(t => t.sortOrder)) : 0;
+  tasks.push({ id:'t'+Date.now(), title, description, date: null,
+    projectId: selectedProjTaskProjectId, completed:false, completedAt:null,
+    sortOrder:maxOrder+1, createdAt:new Date().toISOString() });
+  saveAll();
+  closeSheet('sheetTaskProject');
+  if (activeTab === 'project-detail') renderProjectDetail();
+  renderProjects();
+  showToast('Task added to project');
+}
+
+
+
+// ════════════════════════════════════════════
+//  RENDER
+// ════════════════════════════════════════════
+
+function render() {
+  const iso      = viewingDate;
+  const isToday  = iso === todayISO();
+  const isTomorrow = iso === tomorrowISO();
+  const isFuture = iso > todayISO();
+  const isPast   = iso < todayISO();
+
+  // Header labels
+  document.getElementById('dayLabel').textContent =
+    isToday ? 'Today' : isTomorrow ? 'Tomorrow' : isPast ? 'Past' : 'Upcoming';
+  document.getElementById('dayDate').textContent = formatDate(iso);
+
+  // Tab active states
+  document.getElementById('tabToday').classList.toggle('active', isToday);
+  document.getElementById('tabTomorrow').classList.toggle('active', isTomorrow);
+
+  // Prev/next nav
+  document.getElementById('navPrev').disabled = false;
+  document.getElementById('navNext').disabled = isTomorrow; // don't go past tomorrow for now
+  document.getElementById('navLabel').textContent = '';
+  document.getElementById('navBackBtn').classList.toggle('visible', !isToday && !isTomorrow);
+
+  // Task section label
+  document.getElementById('taskSectionLabel').textContent =
+    isToday ? "Today's Plan" : isTomorrow ? "Tomorrow's Plan" : "Plan";
+
+  // Render task list
+  const dayTasks = tasksForDate(iso);
+  const listEl   = document.getElementById('taskList');
+  const emptyEl  = document.getElementById('emptyState');
+  const addBtn   = document.getElementById('addTaskBtn');
+
+  listEl.innerHTML = '';
+
+  if (dayTasks.length === 0) {
+    emptyEl.style.display = '';
+  } else {
+    emptyEl.style.display = 'none';
+    dayTasks.forEach(t => listEl.appendChild(makeTaskRow(t)));
+  }
+
+  // Progress bar (only meaningful on today)
+  const progressWrap = document.getElementById('progressWrap');
+  const total = dayTasks.length;
+  const done  = dayTasks.filter(t => t.completed).length;
+  if (total > 0) {
+    progressWrap.style.display = '';
+    const pct = Math.round(done / total * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressText').textContent =
+      done === total ? `All ${total} tasks complete 🎉` : `${done} of ${total} complete`;
+  } else {
+    progressWrap.style.display = 'none';
+  }
+
+  // Wrap-up section — only show on today
+  const wrapup = document.getElementById('wrapupSection');
+  wrapup.style.display = isToday ? '' : 'none';
+  if (isToday) renderWrapup(iso, done, total);
+
+  // Add button — hide on past days (can't add to past)
+  addBtn.style.display = isPast ? 'none' : '';
+}
+
+// ─────────────────────────────────────────
+//  TASK ROW
+// ─────────────────────────────────────────
+function makeTaskRow(task, isProjectTask, isIdea) {
+  const el = document.createElement('div');
+  el.className = 'task-row' + (task.completed ? ' done' : '');
+  el.dataset.id = task.id;
+
+  el.innerHTML = `
+    <div class="task-circle" data-action="toggle">
+      <span class="task-circle-check">✓</span>
+    </div>
+    <div class="task-body">
+      <div class="task-title">${esc(task.title)}</div>
+      ${task.description ? `<div class="task-desc">${esc(task.description)}</div>` : ''}
+    </div>
+    <div class="task-drag" data-action="drag">⠿</div>`;
+
+  el.querySelector('[data-action="toggle"]').addEventListener('click', e => {
+    e.stopPropagation();
+    toggleTask(task.id, isProjectTask, isIdea);
+  });
+  el.querySelector('.task-body').addEventListener('click', () => {
+    openEditTask(task.id, isProjectTask, isIdea);
+  });
+  return el;
+}
+
+// ─────────────────────────────────────────
+//  WRAP UP
+// ─────────────────────────────────────────
+function renderWrapup(iso, done, total) {
+  ensureDay(iso);
+  const day = days[iso];
+
+  // Summary text
+  const summaryEl = document.getElementById('wrapupSummary');
+  if (total === 0) {
+    summaryEl.textContent = 'No tasks planned today.';
+  } else {
+    summaryEl.innerHTML = `<span>${done} of ${total}</span> planned tasks completed`;
+  }
+
+  // Rating stars
+  const starsEl = document.getElementById('ratingStars');
+  starsEl.innerHTML = '';
+  [1,2,3,4,5].forEach(n => {
+    const btn = document.createElement('button');
+    btn.className = 'rating-star' + (day.rating === n ? ' selected' : '');
+    btn.textContent = n;
+    btn.onclick = () => {
+      day.rating = day.rating === n ? null : n; // toggle off if same
+      saveAll();
+      renderWrapup(iso, done, total);
+    };
+    starsEl.appendChild(btn);
+  });
+
+  // Note
+  const noteEl = document.getElementById('wrapupNote');
+  noteEl.value = day.note || '';
+  noteEl.oninput = () => {
+    ensureDay(iso);
+    days[iso].note = noteEl.value;
+    saveAll();
+  };
+}
+
+// ════════════════════════════════════════════
+//  TASK ACTIONS
+// ════════════════════════════════════════════
+
+function toggleTask(id, isProjectTask, isIdea) {
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  t.completed = !t.completed;
+  t.completedAt = t.completed ? new Date().toISOString() : null;
+  saveAll();
+  if (isProjectTask) renderProjectDetail();
+  else if (isIdea) renderIdeas();
+  else render();
+}
+
+function openAddTask() { openAddTaskToDay(); }
+
+function openEditTask(id, isProjectTask, isIdea) {
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  editingTaskId = id;
+  document.getElementById('sheetTaskTitle').textContent = 'Edit';
+  document.getElementById('btnSaveTask').textContent = 'Save';
+  document.getElementById('inputTaskTitle').value = t.title;
+  document.getElementById('inputTaskDesc').value = t.description || '';
+  document.getElementById('deleteTaskWrap').style.display = '';
+  document.getElementById('sheetTask').dataset.isProject = isProjectTask ? '1' : '';
+  document.getElementById('sheetTask').dataset.isIdea = isIdea ? '1' : '';
+  openSheet('sheetTask');
+  setTimeout(() => document.getElementById('inputTaskTitle').focus(), 350);
+}
+
+function saveTask() {
+  const title = document.getElementById('inputTaskTitle').value.trim();
+  if (!title) { document.getElementById('inputTaskTitle').focus(); return; }
+  const description = document.getElementById('inputTaskDesc').value.trim();
+  const isProject = document.getElementById('sheetTask').dataset.isProject === '1';
+  const isIdea    = document.getElementById('sheetTask').dataset.isIdea === '1';
+
+  if (editingTaskId) {
+    const t = tasks.find(t => t.id === editingTaskId);
+    if (t) { t.title = title; t.description = description; }
+    showToast('Updated');
+  } else if (isIdea) {
+    // New idea — no date, no project
+    tasks.push({ id:'t'+Date.now(), title, description, date:null, projectId:null,
+      completed:false, completedAt:null, sortOrder:Date.now(), createdAt:new Date().toISOString() });
+    showToast('Idea captured');
+  } else {
+    const existing = tasksForDate(viewingDate);
+    const maxOrder = existing.length ? Math.max(...existing.map(t => t.sortOrder)) : 0;
+    tasks.push({ id:'t'+Date.now(), title, description, date:viewingDate, projectId:null,
+      completed:false, completedAt:null, sortOrder:maxOrder+1, createdAt:new Date().toISOString() });
+    showToast('Task added');
+  }
+  saveAll();
+  closeSheet('sheetTask');
+  if (isProject) renderProjectDetail();
+  else if (isIdea) renderIdeas();
+  else render();
+}
+
+function deleteTask() {
+  const isProject = document.getElementById('sheetTask').dataset.isProject === '1';
+  const isIdea    = document.getElementById('sheetTask').dataset.isIdea === '1';
+  tasks = tasks.filter(t => t.id !== editingTaskId);
+  saveAll();
+  closeSheet('sheetTask');
+  if (isProject) renderProjectDetail();
+  else if (isIdea) renderIdeas();
+  else render();
+  showToast('Deleted');
+}
+
+// ════════════════════════════════════════════
+//  DATE NAVIGATION
+// ════════════════════════════════════════════
+
+function goToday() {
+  viewingDate = todayISO();
+  render();
+}
+
+function goTomorrow() {
+  viewingDate = tomorrowISO();
+  render();
+}
+
+function shiftDay(delta) {
+  const next = shiftISO(viewingDate, delta);
+  // Don't go past tomorrow
+  if (next > tomorrowISO()) return;
+  viewingDate = next;
+  render();
+}
+
+// ════════════════════════════════════════════
+//  SHEET HELPERS
+// ════════════════════════════════════════════
+
+function openSheet(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeSheet(id) {
+  document.getElementById(id).classList.remove('open');
+  if (id === 'sheetTask') editingTaskId = null;
+  if (id === 'sheetProject') editingProjectId = null;
+}
+
+function sheetBgClick(e, id) {
+  if (e.target === document.getElementById(id)) closeSheet(id);
+}
+
+// ════════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════════
+let _toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+// ════════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════════
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ════════════════════════════════════════════
+//  KEYBOARD
+// ════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeCapture();
+    ['sheetTask','sheetProject','sheetTaskDay','sheetTaskProject'].forEach(closeSheet);
+  }
+});
+
+// ════════════════════════════════════════════
+//  IDEAS
+// ════════════════════════════════════════════
+
+// Ideas are tasks with date: null and projectId: null
+function getIdeas() {
+  return tasks
+    .filter(t => !t.date && !t.projectId)
+    .sort((a,b) => b.createdAt.localeCompare(a.createdAt)); // newest first
+}
+
+function renderIdeas() {
+  const list  = document.getElementById('ideasList');
+  const empty = document.getElementById('ideasEmpty');
+  list.innerHTML = '';
+
+  const ideas = getIdeas();
+  if (!ideas.length) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+
+  // Split open vs done
+  const open = ideas.filter(t => !t.completed);
+  const done = ideas.filter(t => t.completed);
+
+  open.forEach(t => list.appendChild(makeTaskRow(t, false, true)));
+
+  if (done.length) {
+    const lbl = document.createElement('div');
+    lbl.className = 'section-label';
+    lbl.style.marginTop = '24px';
+    lbl.textContent = 'Done';
+    list.appendChild(lbl);
+    done.forEach(t => list.appendChild(makeTaskRow(t, false, true)));
+  }
+}
+
+function openAddIdea() {
+  openCapture();
+  // Pre-select idea destination
+  selectDest('idea');
+}
+
+// ════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════
+render();
+</script>
+</body>
+</html>
