@@ -140,14 +140,18 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 }
 .now-head .text-btn:hover{ border-color:var(--accent); color:var(--accent); }
 
-.focus-indicator{
-  display:inline-flex; align-items:center; gap:8px; margin-top:16px; padding:8px 14px;
-  border-radius:999px; background:var(--accent-soft);
-  font-size:13px; color:var(--ink); cursor:pointer;
-}
+.focus-card{ margin-top:16px; padding:18px; border:1px solid var(--line-soft); border-radius:var(--r-lg); background:var(--bg-raised); }
+.focus-card.reached{ border-color:var(--accent); }
+.focus-card-top{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.focus-status{ font-family:var(--font-mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint); }
+.focus-status.done{ color:var(--accent); }
+.focus-card-title{ font-size:16px; font-weight:600; margin-bottom:6px; overflow-wrap:anywhere; }
+.focus-bar{ height:3px; border-radius:2px; background:var(--line); margin:10px 0 2px; overflow:hidden; }
+.focus-bar-fill{ height:100%; width:0; background:var(--accent); transition:width 1s linear; }
+.focus-card-actions{ display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+.focus-card-actions > button{ min-width:100px; }
 .focus-indicator-dot{ width:7px; height:7px; border-radius:50%; background:var(--accent); animation:pulse 1.6s ease-in-out infinite; flex-shrink:0; }
 @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
-.focus-indicator-elapsed{ font-family:var(--font-mono); color:var(--accent); font-variant-numeric:tabular-nums; }
 .focus-elapsed{ font-family:var(--font-mono); font-size:40px; font-weight:500; color:var(--accent); letter-spacing:0.01em; font-variant-numeric:tabular-nums; }
 
 .now-section{ padding:24px 0 0; }
@@ -407,11 +411,9 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
             <div class="now-date" id="nowDate"></div>
             <div class="now-greeting" id="nowGreeting"></div>
           </div>
-          <button class="text-btn" onclick="openFocusSheet()">Focus</button>
+          <button class="text-btn" id="focusToggleBtn" onclick="toggleFocusSetup()">Focus</button>
         </div>
-        <div class="focus-indicator" id="focusIndicator" style="display:none;" role="button" tabindex="0" onclick="openFocusSheet()">
-          <span class="focus-indicator-dot"></span><span id="focusIndicatorText"></span><span class="focus-indicator-elapsed" id="focusIndicatorElapsed"></span>
-        </div>
+        <div id="focusPanel"></div>
       </div>
 
       <div class="now-section">
@@ -724,18 +726,6 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
 </div>
 
 <!-- ════════════════════════════════
-     SHEET: FOCUS SESSION
-════════════════════════════════ -->
-<div class="sheet-overlay" id="sheetFocus" onclick="sheetOverlayClick(event,'sheetFocus')">
-  <div class="sheet">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title" id="focusSheetTitle">Focus session</div>
-    <div class="sheet-body" id="focusSheetBody"></div>
-    <div class="sheet-actions" id="focusSheetActions"></div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════
      SHEET: TASK DETAIL
 ════════════════════════════════ -->
 <div class="sheet-overlay" id="sheetTaskDetail" onclick="sheetOverlayClick(event,'sheetTaskDetail')">
@@ -816,7 +806,9 @@ let focusSelectedTaskId = null;
 let focusFreeText = '';
 let focusProjectId = null;
 let focusGoalMin = null;
-let focusStoppedSummary = null;
+let focusStoppedSummary = ld('focus2_focusSummary', null);
+let focusSetupOpen = false;
+let focusShownReached = false;
 
 function saveAll(){
   sv('focus2_projects', projects);
@@ -1177,67 +1169,96 @@ function toggleBreakerSuccess(breakerId,e){
 }
 
 // ═══ SECTION: FOCUS TIMER ═══
-function openFocusSheet(){
-  if(!activeSession && !focusStoppedSummary){
-    focusMode='freeform'; focusSelectedTaskId=null; focusFreeText=''; focusProjectId=null; focusGoalMin=null;
-  }
-  renderFocusSheet();
-  openSheet('sheetFocus');
+// The timer lives inline at the top of the Now view (no sheet).
+// With a goal it counts down; at zero it holds until you Save or Keep going,
+// and Keep going counts up from the goal until you stop.
+function toggleFocusSetup(){
+  if(activeSession || focusStoppedSummary) return;
+  focusSetupOpen = !focusSetupOpen;
+  if(focusSetupOpen){ focusMode='freeform'; focusSelectedTaskId=null; focusFreeText=''; focusProjectId=null; focusGoalMin=null; }
+  renderFocusPanel();
+  if(focusSetupOpen) document.getElementById('focusFreeInput')?.focus();
 }
-function renderFocusIndicator(){
-  const el=document.getElementById('focusIndicator');
-  if(activeSession){
-    el.style.display='flex';
-    document.getElementById('focusIndicatorText').textContent = activeSession.title;
-    startFocusTicker();
-  } else {
-    el.style.display='none';
-    clearInterval(focusTickInterval);
-  }
+function focusElapsedMs(s, now){
+  const raw = Math.max(0, now - new Date(s.startedAt).getTime());
+  if(s.goalMin && !s.continued) return Math.min(raw, s.goalMin*60000);
+  return Math.max(0, raw - (s.pausedMs||0));
 }
-function renderFocusSheet(){
-  const body=document.getElementById('focusSheetBody');
-  const actions=document.getElementById('focusSheetActions');
+function focusGoalReached(s, now){
+  return !!(s && s.goalMin && !s.continued && (now - new Date(s.startedAt).getTime()) >= s.goalMin*60000);
+}
+function fmtClock(ms){
+  const t=Math.max(0, Math.floor(ms/1000));
+  const h=Math.floor(t/3600), m=Math.floor((t%3600)/60), s=t%60;
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+function fmtGoal(min){ return min%60===0 ? (min/60)+'h' : min>60 ? Math.floor(min/60)+'h '+(min%60)+'m' : min+'m'; }
+function renderFocusIndicator(){ renderFocusPanel(); }
+function renderFocusPanel(){
+  const btn=document.getElementById('focusToggleBtn');
+  const el=document.getElementById('focusPanel'); if(!el) return;
+  btn.style.display = (activeSession||focusStoppedSummary) ? 'none' : '';
+  btn.textContent = focusSetupOpen ? 'Cancel' : 'Focus';
+  clearInterval(focusTickInterval);
   if(activeSession){
-    document.getElementById('focusSheetTitle').textContent='Focus session';
-    body.innerHTML = `
-      <div class="field-label">Working on</div>
-      <div style="font-family:var(--font-serif);font-size:20px;margin-bottom:14px;">${esc(activeSession.title)}</div>
-      <div class="focus-elapsed" id="focusElapsedSheet">00:00:00</div>`;
-    actions.innerHTML = `<button class="btn-save" style="flex:1;" onclick="stopFocusSession()">Stop</button>`;
-    startFocusTicker();
+    const s=activeSession, now=Date.now();
+    const reached=focusGoalReached(s, now);
+    focusShownReached=reached;
+    let label, actions;
+    if(reached){
+      label=`<span class="focus-status done">${fmtGoal(s.goalMin)} goal reached</span>`;
+      actions=`<button class="btn-cancel" onclick="continueFocusSession()">Keep going</button>
+        <button class="btn-save" onclick="saveFocusNow(false)">Save</button>
+        ${s.linkedTaskId?`<button class="btn-save" onclick="saveFocusNow(true)">Save &amp; complete</button>`:''}`;
+    } else {
+      label = s.goalMin && !s.continued ? `<span class="focus-status">Counting down · ${fmtGoal(s.goalMin)} goal</span>`
+        : s.continued ? `<span class="focus-status">Past ${fmtGoal(s.goalMin)} goal</span>`
+        : `<span class="focus-status">Open session</span>`;
+      actions=`<button class="btn-save" onclick="stopFocusSession()">Stop</button>`;
+    }
+    el.innerHTML = `<div class="focus-card${reached?' reached':''}">
+      <div class="focus-card-top"><span class="focus-indicator-dot"></span>${label}</div>
+      <div class="focus-card-title">${esc(s.title)}</div>
+      <div class="focus-elapsed" id="focusClock"></div>
+      ${s.goalMin && !s.continued ? `<div class="focus-bar"><div class="focus-bar-fill" id="focusBarFill"></div></div>` : ''}
+      <div class="focus-card-actions">${actions}</div>
+    </div>`;
+    tickFocusDisplays();
+    if(!reached) focusTickInterval=setInterval(tickFocusDisplays,1000);
   } else if(focusStoppedSummary){
     const s=focusStoppedSummary;
-    document.getElementById('focusSheetTitle').textContent='Session complete';
-    body.innerHTML = `
-      <div class="field-label">Session</div>
-      <div style="font-family:var(--font-serif);font-size:22px;margin-bottom:6px;">${fmtDurLong(s.durationMin)}</div>
-      <div style="color:var(--ink-dim);font-size:14px;">${esc(s.title)}</div>`;
-    actions.innerHTML = `
-      <button class="btn-cancel" onclick="discardFocusSummary()">Discard</button>
-      <button class="btn-save" onclick="saveFocusSummary(false)">Save session</button>
-      ${s.linkedTaskId?`<button class="btn-save" onclick="saveFocusSummary(true)">Save &amp; complete task</button>`:''}`;
-  } else {
-    document.getElementById('focusSheetTitle').textContent='Focus session';
-    body.innerHTML = `
+    el.innerHTML = `<div class="focus-card">
+      <div class="focus-card-top"><span class="focus-status">Session complete</span></div>
+      <div class="focus-card-title">${esc(s.title)}</div>
+      <div class="focus-elapsed">${fmtDurLong(s.durationMin)}</div>
+      <div class="focus-card-actions">
+        <button class="btn-cancel" onclick="discardFocusSummary()">Discard</button>
+        <button class="btn-save" onclick="saveFocusSummary(false)">Save</button>
+        ${s.linkedTaskId?`<button class="btn-save" onclick="saveFocusSummary(true)">Save &amp; complete</button>`:''}
+      </div>
+    </div>`;
+  } else if(focusSetupOpen){
+    const goals=[25,45,60,90,120,180];
+    el.innerHTML = `<div class="focus-card">
       <div class="field-label">What are you working on?</div>
       <div class="chip-row">
-        <button class="chip${focusMode==='task'?' active':''}" onclick="setFocusMode('task',this)">Select existing task</button>
         <button class="chip${focusMode==='freeform'?' active':''}" onclick="setFocusMode('freeform',this)">Something else</button>
+        <button class="chip${focusMode==='task'?' active':''}" onclick="setFocusMode('task',this)">Existing task</button>
       </div>
       <div id="focusModeBody"></div>
       <div class="field-label">Project</div>
       <div class="chip-row" id="focusProjectChipsSheet"></div>
-      <div class="field-label">Optional goal</div>
+      <div class="field-label">Count down from</div>
       <div class="chip-row" id="focusGoalChips">
-        <button class="chip" data-g="30" onclick="setFocusGoal(30)">30m</button>
-        <button class="chip" data-g="60" onclick="setFocusGoal(60)">1h</button>
-        <button class="chip" data-g="120" onclick="setFocusGoal(120)">2h</button>
-        <button class="chip active" data-g="" onclick="setFocusGoal(null)">Open</button>
-      </div>`;
+        ${goals.map(g=>`<button class="chip${focusGoalMin===g?' active':''}" data-g="${g}" onclick="setFocusGoal(${g})">${fmtGoal(g)}</button>`).join('')}
+        <button class="chip${focusGoalMin===null?' active':''}" data-g="" onclick="setFocusGoal(null)">Open</button>
+      </div>
+      <div class="focus-card-actions"><button class="btn-save" onclick="startFocusSession()">Start</button></div>
+    </div>`;
     renderFocusModeBody();
     renderFocusProjectChipsSheet();
-    actions.innerHTML = `<button class="btn-cancel" onclick="closeSheet('sheetFocus')">Cancel</button><button class="btn-save" onclick="startFocusSessionFromSheet()">Start</button>`;
+  } else {
+    el.innerHTML='';
   }
 }
 function renderFocusModeBody(){
@@ -1248,7 +1269,7 @@ function renderFocusModeBody(){
       candidates.map(t=>`<label class="picker-row"><input type="radio" name="focusTaskPick" value="${t.id}" ${focusSelectedTaskId===t.id?'checked':''} onchange="pickFocusTask('${t.id}')"><span>${esc(t.title)}</span></label>`).join('') +
       `</div>` : `<div class="empty-line">No open tasks yet.</div>`;
   } else {
-    wrap.innerHTML = `<input class="field-input" id="focusFreeInput" placeholder="What are you about to do?" value="${esc(focusFreeText)}" oninput="focusFreeText=this.value">`;
+    wrap.innerHTML = `<input class="field-input" id="focusFreeInput" placeholder="What are you about to do?" value="${esc(focusFreeText)}" oninput="focusFreeText=this.value" onkeydown="if(event.key==='Enter')startFocusSession()">`;
   }
 }
 function setFocusMode(m,el){
@@ -1275,7 +1296,7 @@ function setFocusGoal(min){
     c.classList.toggle('active', g===min);
   });
 }
-function startFocusSessionFromSheet(){
+function startFocusSession(){
   let title;
   if(focusMode==='task'){
     if(!focusSelectedTaskId){ showToast('Pick a task first'); return; }
@@ -1284,25 +1305,46 @@ function startFocusSessionFromSheet(){
     title = (document.getElementById('focusFreeInput')?.value||'').trim();
     if(!title){ showToast('Type what you\'re working on'); return; }
   }
-  activeSession = { title, projectId:focusProjectId||null, linkedTaskId: focusMode==='task'?focusSelectedTaskId:null, goalMin:focusGoalMin, startedAt:new Date().toISOString() };
+  activeSession = { title, projectId:focusProjectId||null, linkedTaskId: focusMode==='task'?focusSelectedTaskId:null, goalMin:focusGoalMin, startedAt:new Date().toISOString(), continued:false, pausedMs:0 };
   sv('focus2_activeSession', activeSession);
-  renderFocusIndicator();
-  renderFocusSheet();
+  focusSetupOpen=false;
+  renderFocusPanel();
 }
-function stopFocusSession(){
-  if(!activeSession) return;
-  const start=new Date(activeSession.startedAt), end=new Date();
-  const durationMin = Math.max(1, Math.round((end-start)/60000));
-  focusStoppedSummary = { title:activeSession.title, projectId:activeSession.projectId, linkedTaskId:activeSession.linkedTaskId, start:activeSession.startedAt, end:end.toISOString(), durationMin };
+// Resume counting up from the goal. Time spent sitting on the "goal reached"
+// screen isn't counted, so the clock picks up at exactly the goal.
+function continueFocusSession(){
+  const s=activeSession; if(!s) return;
+  const raw = Date.now() - new Date(s.startedAt).getTime();
+  s.pausedMs = Math.max(0, raw - s.goalMin*60000);
+  s.continued = true;
+  sv('focus2_activeSession', s);
+  renderFocusPanel();
+}
+function endFocusSession(){
+  const s=activeSession, now=Date.now();
+  const elapsed=focusElapsedMs(s, now);
+  const start=new Date(s.startedAt);
+  const end = new Date(start.getTime() + elapsed + (s.continued ? (s.pausedMs||0) : 0));
   activeSession=null;
   sv('focus2_activeSession', null);
   clearInterval(focusTickInterval);
-  renderFocusIndicator();
-  renderFocusSheet();
+  return { title:s.title, projectId:s.projectId, linkedTaskId:s.linkedTaskId, start:s.startedAt, end:end.toISOString(), durationMin:Math.max(1, Math.round(elapsed/60000)) };
+}
+function stopFocusSession(){
+  if(!activeSession) return;
+  focusStoppedSummary = endFocusSession();
+  sv('focus2_focusSummary', focusStoppedSummary);
+  renderFocusPanel();
+}
+function saveFocusNow(alsoComplete){
+  if(!activeSession) return;
+  focusStoppedSummary = endFocusSession();
+  saveFocusSummary(alsoComplete);
 }
 function discardFocusSummary(){
   focusStoppedSummary=null;
-  closeSheet('sheetFocus');
+  sv('focus2_focusSummary', null);
+  renderFocusPanel();
 }
 function saveFocusSummary(alsoComplete){
   const s=focusStoppedSummary; if(!s) return;
@@ -1310,23 +1352,24 @@ function saveFocusSummary(alsoComplete){
   if(alsoComplete && s.linkedTaskId) toggleTaskDone(s.linkedTaskId, null, true);
   saveAll();
   focusStoppedSummary=null;
-  closeSheet('sheetFocus');
+  sv('focus2_focusSummary', null);
   renderCurrentView();
   showToast(alsoComplete?'Session saved & task completed':'Focus session saved');
 }
-function startFocusTicker(){
-  clearInterval(focusTickInterval);
-  focusTickInterval = setInterval(tickFocusDisplays,1000);
-  tickFocusDisplays();
-}
 function tickFocusDisplays(){
-  if(!activeSession) return;
-  const totalSec = Math.max(0, Math.floor((Date.now()-new Date(activeSession.startedAt).getTime())/1000));
-  const h=Math.floor(totalSec/3600), m=Math.floor((totalSec%3600)/60), s=totalSec%60;
-  const str = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
-  const sheetEl=document.getElementById('focusElapsedSheet'); if(sheetEl) sheetEl.textContent=str;
-  const indEl=document.getElementById('focusIndicatorElapsed'); if(indEl) indEl.textContent=' · '+str;
+  const s=activeSession; if(!s) return;
+  const now=Date.now();
+  if(focusGoalReached(s, now) !== focusShownReached){
+    if(!focusShownReached && navigator.vibrate) navigator.vibrate([200,100,200]);
+    renderFocusPanel(); return;
+  }
+  const elapsed=focusElapsedMs(s, now);
+  const counting = s.goalMin && !s.continued;
+  const shown = counting ? s.goalMin*60000 - elapsed : elapsed;
+  const clock=document.getElementById('focusClock'); if(clock) clock.textContent=fmtClock(counting ? Math.ceil(shown/1000)*1000 : shown);
+  const bar=document.getElementById('focusBarFill'); if(bar && s.goalMin) bar.style.width=Math.min(100, elapsed/(s.goalMin*600))+'%';
 }
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden && activeSession) tickFocusDisplays(); });
 
 // ═══ SECTION: TIMELINE VIEW ═══
 function makeDayBlock(dateIso, dayEntries){
@@ -2173,7 +2216,7 @@ function showToast(msg,undoFn){
 }
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
-    ['sheetTask','sheetHabit','sheetBreaker','sheetProject','sheetPlanTomorrow','sheetCapture','sheetFocus','sheetTaskDetail','sheetHabitDetail','sheetBreakerDetail'].forEach(closeSheet);
+    ['sheetTask','sheetHabit','sheetBreaker','sheetProject','sheetPlanTomorrow','sheetCapture','sheetTaskDetail','sheetHabitDetail','sheetBreakerDetail'].forEach(closeSheet);
   }
   if((e.key==='Enter'||e.key===' ') && e.target.matches('[role="button"]')){
     e.preventDefault();
