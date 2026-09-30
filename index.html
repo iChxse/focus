@@ -348,6 +348,9 @@ body.sheet-locked{ position:fixed; left:0; right:0; overflow:hidden; }
 .field-input::placeholder{ color:var(--ink-faint); }
 .field-input:focus{ border-color:var(--accent); }
 textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
+/* iOS gives date inputs a wide intrinsic size and centered text; keep them inside the sheet */
+input[type="date"].field-input{ -webkit-appearance:none; appearance:none; display:block; min-width:0; max-width:100%; text-align:left; color-scheme:dark; min-height:46px; }
+input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
 .field-label{ font-size:12.5px; font-weight:600; color:var(--ink-dim); margin-bottom:8px; display:block; }
 .chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
 .chip{ font-size:13.5px; font-weight:500; padding:8px 14px; border:1px solid var(--line); border-radius:999px; color:var(--ink-dim); transition:all .15s; }
