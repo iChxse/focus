@@ -1081,6 +1081,9 @@ function parseTimeLabelMinutes(label){
 }
 
 // ═══ SECTION: SHARED ROWS ═══
+// Tasks finished before today show no tick box; tapping the row opens details
+// (Edit, Mark not done, Delete) so a stray tap can't undo them.
+function finishedEarlier(tk){ return !!(tk.completed && tk.completedAt && toISO(new Date(tk.completedAt))<today()); }
 function makeTaskRow(tk, opts={}){
   const el=document.createElement('div');
   el.className='check-row'+(tk.completed?' done':'');
@@ -1099,7 +1102,7 @@ function makeTaskRow(tk, opts={}){
     if(tk.repeat) metaParts.push('↻ '+(REPEAT_SHORT[tk.repeat.freq]||'Repeats'));
   }
   el.innerHTML=`
-    <button type="button" class="check-dot" onclick="taskDotTap('${tk.id}',event)"></button>
+    ${finishedEarlier(tk) ? '' : `<button type="button" class="check-dot" onclick="taskDotTap('${tk.id}',event)"></button>`}
     <div class="check-body">
       <div class="check-title">${esc(tk.title)}</div>
       ${metaParts.length?`<div class="check-meta">${proj?`<span class="dot-tag" style="background:${proj.color}"></span>`:''}${esc(metaParts.join(' · '))}</div>`:''}
@@ -1250,8 +1253,16 @@ function toggleTaskDone(taskId,e,silent,onIso){
 function taskDotTap(taskId,e){
   if(e) e.stopPropagation();
   const tk=tasks.find(t=>t.id===taskId); if(!tk) return;
-  if(tk.completed && tk.completedAt && toISO(new Date(tk.completedAt))<today()) openTaskDetailSheet(taskId);
+  if(finishedEarlier(tk)) openTaskDetailSheet(taskId);
   else toggleTaskDone(taskId);
+}
+function deleteTaskFromDetail(taskId){
+  const tk=tasks.find(t=>t.id===taskId); if(!tk) return;
+  const snap={ tasks:JSON.stringify(tasks), entries:JSON.stringify(entries) };
+  tasks=tasks.filter(t=>t.id!==taskId);
+  entries=entries.filter(e=>!(e.type==='task' && e.sourceId===taskId));
+  saveAll(); closeSheet('sheetTaskDetail'); renderCurrentView();
+  showToast('Deleted "'+tk.title+'"', ()=>{ tasks=JSON.parse(snap.tasks); entries=JSON.parse(snap.entries); saveAll(); renderCurrentView(); });
 }
 function markTaskNotDone(taskId){
   closeSheet('sheetTaskDetail');
@@ -1912,7 +1923,8 @@ function openTaskDetailSheet(taskId){
     rows.push(['Status','Incomplete']);
   }
   document.getElementById('taskDetailBody').innerHTML = rows.map(([k,v])=>`<div class="detail-row"><span class="detail-row-label">${esc(k)}</span><span class="detail-row-value">${esc(v)}</span></div>`).join('')
-    + (tk.completed ? `<button type="button" class="btn-quiet" style="margin:16px 0 0;width:100%;" onclick="markTaskNotDone('${tk.id}')">Mark not done</button>` : '');
+    + (tk.completed ? `<button type="button" class="btn-quiet" style="margin:16px 0 0;width:100%;" onclick="markTaskNotDone('${tk.id}')">Mark not done</button>
+      <button type="button" class="btn-danger" style="margin:10px 0 0;width:100%;" onclick="deleteTaskFromDetail('${tk.id}')">Delete task</button>` : '');
   const actions=document.getElementById('taskDetailActions');
   if(tk.completed){
     actions.innerHTML = `<button class="btn-cancel" onclick="closeSheet('sheetTaskDetail');openTaskSheet('${tk.id}')">Edit</button><button class="btn-save" onclick="viewTaskInTimeline('${tk.id}')">View in timeline</button>`;
