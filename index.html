@@ -400,6 +400,35 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
 .capture-type.active{ color:var(--accent); background:var(--accent-soft); }
 
 /* ─────────────────────────────────────────
+   ASK (Claude chat)
+───────────────────────────────────────── */
+.now-head-btns{ display:flex; gap:8px; flex-shrink:0; }
+#sheetAsk .sheet{ display:flex; flex-direction:column; height:80vh; height:80dvh; overflow:hidden; }
+.ask-head{ display:flex; align-items:baseline; justify-content:space-between; padding-right:var(--gutter); }
+.ask-head .text-btn{ font-size:13px; color:var(--ink-faint); margin-left:14px; }
+.ask-log{ flex:1; overflow-y:auto; padding:10px var(--gutter) 8px; display:flex; flex-direction:column; gap:8px; }
+.ask-empty{ color:var(--ink-faint); font-size:14px; line-height:1.5; padding:6px 2px; }
+.ask-empty b{ color:var(--ink-dim); font-weight:500; }
+.ask-msg{ max-width:86%; padding:9px 13px; border-radius:16px; font-size:15px; line-height:1.4; white-space:pre-wrap; word-wrap:break-word; }
+.ask-msg.me{ align-self:flex-end; background:var(--bg-hover); border-bottom-right-radius:5px; }
+.ask-msg.ai{ align-self:flex-start; background:var(--bg-raised); border:1px solid var(--line-soft); border-bottom-left-radius:5px; color:var(--ink); }
+.ask-msg.err{ align-self:flex-start; color:var(--breaker); background:var(--breaker-soft); }
+.ask-msg.thinking{ color:var(--ink-faint); }
+.ask-act{ align-self:flex-start; font-size:13px; color:var(--ink-dim); padding:2px 4px; }
+.ask-act::before{ content:'✓ '; color:var(--ink-faint); }
+.ask-undo{ align-self:flex-start; font-size:13px; font-weight:600; color:var(--accent); padding:2px 4px; }
+.ask-bar{ display:flex; gap:8px; align-items:flex-end; padding:10px var(--gutter) calc(14px + var(--safe-b)); border-top:1px solid var(--line-soft); background:var(--bg-sheet); }
+.ask-bar .field-input{ flex:1; margin:0; min-height:46px; max-height:120px; padding:12px 14px; }
+.ask-icon-btn{ width:46px; height:46px; border-radius:var(--r-md); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.ask-icon-btn svg{ width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.ask-mic{ background:var(--bg-raised); border:1px solid var(--line); color:var(--ink-dim); }
+.ask-mic.on{ border-color:var(--breaker); color:var(--breaker); background:var(--breaker-soft); }
+.ask-send{ background:var(--accent); color:var(--accent-ink); }
+.ask-send:disabled{ opacity:.45; }
+.ask-key{ padding:12px var(--gutter) 14px; }
+.ask-key p{ font-size:14px; color:var(--ink-dim); line-height:1.5; margin-bottom:12px; }
+
+/* ─────────────────────────────────────────
    TOAST
 ───────────────────────────────────────── */
 .toast{ position:fixed; bottom:calc(var(--nav-h) + 16px + var(--safe-b)); left:50%; transform:translateX(-50%) translateY(16px); display:flex; align-items:center; gap:16px; background:var(--bg-hover); border:1px solid var(--line); border-radius:999px; box-shadow:0 10px 30px rgba(0,0,0,.45); color:var(--ink); font-size:14px; padding:11px 20px; z-index:300; white-space:nowrap; opacity:0; transition:opacity .2s, transform .2s; pointer-events:none; max-width:88vw; }
@@ -422,7 +451,10 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
             <div class="now-date" id="nowDate"></div>
             <div class="now-greeting" id="nowGreeting"></div>
           </div>
-          <button class="text-btn" id="focusToggleBtn" onclick="toggleFocusSetup()">Focus</button>
+          <div class="now-head-btns">
+            <button class="text-btn" onclick="openAsk()">Ask</button>
+            <button class="text-btn" id="focusToggleBtn" onclick="toggleFocusSetup()">Focus</button>
+          </div>
         </div>
         <div id="focusPanel"></div>
       </div>
@@ -739,6 +771,33 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
     <div class="sheet-actions">
       <button class="btn-cancel" onclick="closeSheet('sheetCapture')">Cancel</button>
       <button class="btn-save" onclick="saveCapture()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     SHEET: ASK (Claude chat)
+════════════════════════════════ -->
+<div class="sheet-overlay" id="sheetAsk" onclick="sheetOverlayClick(event,'sheetAsk')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="ask-head">
+      <div class="sheet-title">Ask</div>
+      <div><button class="text-btn" id="askNewBtn" onclick="askNewChat()">New chat</button> <button class="text-btn" onclick="askShowKey()">API key</button></div>
+    </div>
+    <div class="ask-key" id="askKeyPane" style="display:none;">
+      <p>Paste your Claude API key from console.anthropic.com. It stays in this browser on this phone and is only sent to Anthropic.</p>
+      <input class="field-input" id="askKeyInput" type="password" autocomplete="off" placeholder="sk-ant-…" onkeydown="if(event.key==='Enter')askSaveKey()">
+      <div class="sheet-actions" style="padding:0;position:static;">
+        <button class="btn-cancel" id="askKeyRemove" onclick="askRemoveKey()">Remove key</button>
+        <button class="btn-save" onclick="askSaveKey()">Save key</button>
+      </div>
+    </div>
+    <div class="ask-log" id="askLog"></div>
+    <div class="ask-bar" id="askBar">
+      <button type="button" class="ask-icon-btn ask-mic" id="askMic" onclick="askToggleMic()" aria-label="Speak"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <textarea class="field-input" id="askInput" rows="1" placeholder="Type or tap the mic…" oninput="askAutoGrow()" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();askSend();}"></textarea>
+      <button type="button" class="ask-icon-btn ask-send" id="askSendBtn" onclick="askSend()" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
     </div>
   </div>
 </div>
@@ -2114,8 +2173,317 @@ function closeSheet(id){
   if(id==='sheetTask'){ editTaskId=null; addTaskDefaultProjectId=null; }
   if(id==='sheetHabit') editHabitId=null;
   if(id==='sheetBreaker') editBreakerId=null;
+  if(id==='sheetAsk') askStopMic();
 }
 function sheetOverlayClick(e,id){ if(e.target===document.getElementById(id)) closeSheet(id); }
+
+// ═══ SECTION: ASK (Claude chat) ═══
+// Talks to the Claude API straight from the phone with the user's own key
+// (kept in localStorage, never in the repo). Claude edits tasks through the
+// tools below; each reply turn can be undone as a whole.
+const ASK_MODEL = 'claude-opus-5-5';
+const ASK_KEY_STORE = 'focus2_claudeKey';
+let askMessages = [];      // API-format history for the current chat
+let askBusy = false;
+let askUndoSnap = null;    // tasks/entries before the last turn that changed something
+let askUndoneNote = false;
+let askRec = null;
+
+const ASK_TOOLS = [
+  { name:'create_task', description:'Create a task in Focus. Leave date empty for the backlog.',
+    input_schema:{ type:'object', additionalProperties:false, required:['title'], properties:{
+      title:{ type:'string', description:'Short task title, e.g. "Do laundry".' },
+      date:{ type:'string', description:'Day it is scheduled for, YYYY-MM-DD.' },
+      soon:{ type:'boolean', description:'True for "this week / soon" with no specific day.' },
+      time:{ type:'string', description:'Time of day like "1:00 PM". Only when the user gave one.' },
+      project:{ type:'string', description:'Name of an existing project.' },
+      notes:{ type:'string' },
+      estimate_min:{ type:'integer', description:'Estimated minutes.' },
+      repeat:{ type:'string', enum:['daily','weekdays','weekly','monthly'], description:'Makes it a repeating task (weekly/monthly repeat on the date\'s weekday/day of month).' } } } },
+  { name:'list_tasks', description:'List tasks with their ids. Call this before changing or completing an existing task.',
+    input_schema:{ type:'object', additionalProperties:false, properties:{
+      include_completed:{ type:'boolean', description:'Also return the 20 most recently completed tasks.' } } } },
+  { name:'update_task', description:'Change an existing task. Only pass the fields that change. Pass date "" to unschedule.',
+    input_schema:{ type:'object', additionalProperties:false, required:['id'], properties:{
+      id:{ type:'string' }, title:{ type:'string' }, date:{ type:'string', description:'YYYY-MM-DD, or "" to unschedule.' },
+      soon:{ type:'boolean' }, time:{ type:'string', description:'"1:00 PM", or "" to clear.' }, project:{ type:'string', description:'Project name, or "" for none.' },
+      notes:{ type:'string' }, estimate_min:{ type:'integer' },
+      repeat:{ type:'string', enum:['none','daily','weekdays','weekly','monthly'] } } } },
+  { name:'complete_task', description:'Mark a task done.',
+    input_schema:{ type:'object', additionalProperties:false, required:['id'], properties:{ id:{ type:'string' } } } },
+  { name:'delete_task', description:'Delete a task. Only when the user clearly asks to remove it.',
+    input_schema:{ type:'object', additionalProperties:false, required:['id'], properties:{ id:{ type:'string' } } } },
+];
+
+function askSystemPrompt(){
+  const now=new Date();
+  const dayName=now.toLocaleDateString('en-US',{weekday:'long'});
+  const projs=activeProjects().map(p=>p.name);
+  return `You are the assistant inside Focus, a personal task and habit app on the user's phone. The user types or speaks short requests; you carry them out with the tools, then answer in one short, plain sentence saying what you did (no markdown).
+
+Today is ${dayName}, ${today()}. The local time is ${fmtTimeShort(now.toISOString())}.
+Projects: ${projs.length?projs.join(', '):'none yet'}.
+
+Work out relative dates yourself ("2 days from now", "next Friday", "tomorrow"). Put a spoken time like "1pm" in the time field as "1:00 PM". Tidy titles into a short phrase in sentence case ("put laundry on the list" becomes "Do laundry"). Only set a project when the user names one that exists. When a request is ambiguous but a sensible default exists, use the default instead of asking. To change, complete or delete an existing task, call list_tasks first to find its id. If the request is not about tasks, answer briefly without tools.`;
+}
+
+function askNormTime(s){
+  if(!s) return '';
+  const m=String(s).trim().match(/^(\d{1,2})(?::(\d{2}))?\s*([ap])?\.?\s*m?\.?$/i);
+  if(!m) return String(s).trim();
+  let h=parseInt(m[1],10); const mi=m[2]||'00'; let ap=m[3]?m[3].toUpperCase()+'M':null;
+  if(!ap){ if(h>=12){ ap='PM'; if(h>12) h-=12; } else { ap='AM'; if(h===0) h=12; } }
+  return h+':'+mi+' '+ap;
+}
+function askFindProject(name){
+  if(!name) return { id:null };
+  const p=activeProjects().find(p=>p.name.toLowerCase()===String(name).trim().toLowerCase());
+  return p ? { id:p.id } : { error:`No project called "${name}". Projects: ${activeProjects().map(p=>p.name).join(', ')||'none'}.` };
+}
+function askTaskView(t){
+  const p=projects.find(p=>p.id===t.projectId);
+  return { id:t.id, title:t.title, date:t.scheduledDate||null, soon:!!t.soon, time:t.time||null, project:p?p.name:null,
+    notes:t.notes||null, estimate_min:t.estimateMin||null, repeat:t.repeat?t.repeat.freq:null, completed:!!t.completed };
+}
+function askWhen(t){
+  if(t.scheduledDate) return ' · '+fmtScheduleLabel(t.scheduledDate)+(t.time?', '+t.time:'');
+  return t.soon ? ' · Soon' : '';
+}
+const ASK_ISO=/^\d{4}-\d{2}-\d{2}$/;
+
+// Runs one tool call. Returns { result, action } where action is a line for the chat log.
+function askRunTool(name, input){
+  input=input||{};
+  if(name==='list_tasks'){
+    const open=tasks.filter(t=>!t.completed).map(askTaskView);
+    const out={ open };
+    if(input.include_completed) out.recently_completed=tasks.filter(t=>t.completed).sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||'')).slice(0,20).map(askTaskView);
+    return { result:out };
+  }
+  if(name==='create_task'){
+    const title=String(input.title||'').trim();
+    if(!title) return { error:'title is required' };
+    if(input.date && !ASK_ISO.test(input.date)) return { error:'date must be YYYY-MM-DD' };
+    const pr=askFindProject(input.project); if(pr.error) return { error:pr.error };
+    let scheduledDate=input.date||null, soon=!scheduledDate && !!input.soon;
+    if(input.repeat && !scheduledDate){ scheduledDate=today(); soon=false; }
+    const t={ id:newTaskId(), title, projectId:pr.id, notes:input.notes||'', completed:false, completedAt:null, scheduledDate, soon,
+      estimateMin:input.estimate_min||null, time:askNormTime(input.time), repeat:buildRepeat(input.repeat||null, scheduledDate), createdAt:new Date().toISOString() };
+    tasks.unshift(t);
+    return { result:askTaskView(t), action:'Added '+t.title+askWhen(t) };
+  }
+  const tk=tasks.find(t=>t.id===input.id);
+  if(!tk) return { error:'No task with id '+input.id+'. Call list_tasks.' };
+  if(name==='update_task'){
+    if('title' in input && String(input.title).trim()) tk.title=String(input.title).trim();
+    if('date' in input){
+      if(input.date && !ASK_ISO.test(input.date)) return { error:'date must be YYYY-MM-DD or ""' };
+      tk.scheduledDate=input.date||null; if(tk.scheduledDate) tk.soon=false;
+    }
+    if('soon' in input){ tk.soon=!!input.soon; if(tk.soon) tk.scheduledDate=null; }
+    if('time' in input) tk.time=askNormTime(input.time);
+    if('project' in input){ const pr=askFindProject(input.project); if(pr.error) return { error:pr.error }; tk.projectId=pr.id; }
+    if('notes' in input) tk.notes=input.notes||'';
+    if('estimate_min' in input) tk.estimateMin=input.estimate_min||null;
+    if('repeat' in input){
+      if(input.repeat && input.repeat!=='none' && !tk.scheduledDate){ tk.scheduledDate=today(); tk.soon=false; }
+      tk.repeat=buildRepeat(input.repeat==='none'?null:input.repeat, tk.scheduledDate);
+    }
+    return { result:askTaskView(tk), action:'Updated '+tk.title+askWhen(tk) };
+  }
+  if(name==='complete_task'){
+    if(!tk.completed) toggleTaskDone(tk.id,null,true);
+    return { result:askTaskView(tk), action:'Completed '+tk.title };
+  }
+  if(name==='delete_task'){
+    tasks=tasks.filter(t=>t.id!==tk.id);
+    entries=entries.filter(e=>!(e.type==='task' && e.sourceId===tk.id));
+    return { result:{ deleted:tk.id }, action:'Deleted '+tk.title };
+  }
+  return { error:'Unknown tool '+name };
+}
+
+async function askCallApi(key){
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'content-type':'application/json',
+      'x-api-key':key,
+      'anthropic-version':'2023-06-01',
+      'anthropic-beta':'server-side-fallback-2026-07-01',
+      'anthropic-dangerous-direct-browser-access':'true',
+    },
+    body:JSON.stringify({
+      model:ASK_MODEL, max_tokens:4096,
+      output_config:{ effort:'low' },
+      fallbacks:'default',
+      system:askSystemPrompt(),
+      tools:ASK_TOOLS,
+      messages:askMessages,
+    }),
+  });
+  const body=await res.json().catch(()=>null);
+  if(!res.ok){
+    const msg=body&&body.error&&body.error.message || ('HTTP '+res.status);
+    const err=new Error(msg); err.status=res.status; throw err;
+  }
+  return body;
+}
+
+async function askSend(){
+  const input=document.getElementById('askInput');
+  const text=input.value.trim();
+  if(!text || askBusy) return;
+  const key=ld(ASK_KEY_STORE,'');
+  if(!key){ askShowKey(); return; }
+  askStopMic();
+  input.value=''; askAutoGrow();
+  askAddLine('me', text);
+  const note = askUndoneNote ? '(I tapped Undo, so your previous changes were reverted.)\n' : '';
+  askUndoneNote=false;
+  askMessages.push({ role:'user', content:note+text });
+  const snap={ tasks:JSON.stringify(tasks), entries:JSON.stringify(entries) };
+  let changed=false;
+  askSetBusy(true);
+  const pending=askAddLine('ai thinking','…');
+  try{
+    for(let i=0;i<8;i++){
+      const msg=await askCallApi(key);
+      // Keep the whole content (thinking blocks included) so the next request replays it unchanged.
+      askMessages.push({ role:'assistant', content:msg.content });
+      if(msg.stop_reason==='refusal'){ askAddLine('err','Claude declined that one.'); break; }
+      const said=msg.content.filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+      if(said) askAddLine('ai', said, pending);
+      const calls=msg.content.filter(b=>b.type==='tool_use');
+      if(msg.stop_reason!=='tool_use' || !calls.length){
+        if(msg.stop_reason==='max_tokens') askAddLine('err','That reply got cut off. Try a shorter request.');
+        break;
+      }
+      const results=calls.map(c=>{
+        let r; try{ r=askRunTool(c.name, c.input); }catch(e){ r={ error:String(e.message||e) }; }
+        if(r.action){ changed=true; askAddLine('act', r.action, pending); }
+        return r.error
+          ? { type:'tool_result', tool_use_id:c.id, content:r.error, is_error:true }
+          : { type:'tool_result', tool_use_id:c.id, content:JSON.stringify(r.result) };
+      });
+      if(changed){ saveAll(); renderCurrentView(); }
+      askMessages.push({ role:'user', content:results });
+    }
+  }catch(e){
+    if(e.status===401){ askAddLine('err','That API key was rejected. Check it and try again.'); askShowKey(); }
+    else askAddLine('err', e.status ? 'Claude error: '+e.message : 'Could not reach Claude. Check your connection.');
+    // Drop the unanswered turn so the chat can continue cleanly.
+    while(askMessages.length && !(askMessages[askMessages.length-1].role==='assistant' && !askMessages[askMessages.length-1].content.some(b=>b.type==='tool_use'))) askMessages.pop();
+  }
+  pending.remove();
+  askSetBusy(false);
+  if(changed){
+    askUndoSnap=snap;
+    document.querySelectorAll('#askLog .ask-undo').forEach(b=>b.remove());
+    const btn=document.createElement('button');
+    btn.className='ask-undo'; btn.textContent='Undo';
+    btn.onclick=askUndo;
+    askAppend(btn);
+  }
+}
+function askUndo(){
+  if(!askUndoSnap) return;
+  tasks=JSON.parse(askUndoSnap.tasks); entries=JSON.parse(askUndoSnap.entries);
+  askUndoSnap=null; askUndoneNote=true;
+  saveAll(); renderCurrentView();
+  document.querySelectorAll('#askLog .ask-undo').forEach(b=>b.remove());
+  askAddLine('act','Undone');
+}
+
+function askAppend(el, before){
+  const log=document.getElementById('askLog');
+  const empty=log.querySelector('.ask-empty'); if(empty) empty.remove();
+  if(before && before.parentNode===log) log.insertBefore(el,before); else log.appendChild(el);
+  log.scrollTop=log.scrollHeight;
+  return el;
+}
+function askAddLine(kind, text, before){
+  const el=document.createElement('div');
+  el.className = kind==='act' ? 'ask-act' : 'ask-msg '+kind;
+  el.textContent=text;
+  return askAppend(el, before);
+}
+function askSetBusy(b){
+  askBusy=b;
+  document.getElementById('askSendBtn').disabled=b;
+}
+function askAutoGrow(){
+  const t=document.getElementById('askInput');
+  t.style.height='auto'; t.style.height=Math.min(t.scrollHeight,120)+'px';
+}
+function askRenderEmpty(){
+  document.getElementById('askLog').innerHTML=`<div class="ask-empty">Tell Claude what to add or change, by typing or with the mic.<br><br><b>“Laundry 2 days from now at 1pm”</b><br><b>“Move the dentist call to Friday”</b><br><b>“I finished the gym bag”</b></div>`;
+}
+function askNewChat(){
+  if(askBusy) return;
+  askMessages=[]; askUndoSnap=null; askUndoneNote=false;
+  askRenderEmpty();
+}
+function openAsk(){
+  if(!askMessages.length) askRenderEmpty();
+  const hasKey=!!ld(ASK_KEY_STORE,'');
+  document.getElementById('askKeyPane').style.display = hasKey ? 'none' : '';
+  document.getElementById('askKeyRemove').style.display = hasKey ? '' : 'none';
+  document.getElementById('askMic').style.display = askSR() ? '' : 'none';
+  openSheet('sheetAsk');
+  if(hasKey) setTimeout(()=>document.getElementById('askInput').focus(),300);
+}
+function askShowKey(){
+  const pane=document.getElementById('askKeyPane');
+  const open=pane.style.display==='none';
+  pane.style.display = open ? '' : 'none';
+  document.getElementById('askKeyInput').value='';
+  document.getElementById('askKeyRemove').style.display = ld(ASK_KEY_STORE,'') ? '' : 'none';
+  if(open) setTimeout(()=>document.getElementById('askKeyInput').focus(),50);
+}
+function askSaveKey(){
+  const v=document.getElementById('askKeyInput').value.trim();
+  if(!v){ document.getElementById('askKeyInput').focus(); return; }
+  sv(ASK_KEY_STORE, v);
+  document.getElementById('askKeyPane').style.display='none';
+  showToast('Key saved on this phone');
+  document.getElementById('askInput').focus();
+}
+function askRemoveKey(){
+  try{ localStorage.removeItem(ASK_KEY_STORE); }catch{}
+  document.getElementById('askKeyRemove').style.display='none';
+  showToast('Key removed');
+}
+
+// Voice: the browser's built-in speech recognition. Sends when you stop talking.
+function askSR(){ return window.SpeechRecognition || window.webkitSpeechRecognition || null; }
+function askStopMic(){ if(askRec){ const r=askRec; askRec=null; r.onend=null; try{ r.abort(); }catch{} } document.getElementById('askMic').classList.remove('on'); }
+function askToggleMic(){
+  if(askRec){ askRec.stop(); return; }
+  const SR=askSR(); if(!SR) return;
+  if(!ld(ASK_KEY_STORE,'')){ askShowKey(); return; }
+  const rec=new SR();
+  rec.lang=navigator.language||'en-US';
+  rec.interimResults=true;
+  rec.continuous=false;
+  const input=document.getElementById('askInput');
+  const base=input.value.trim();
+  let finalText='';
+  rec.onresult=e=>{
+    let interim=''; finalText='';
+    for(const r of e.results){ if(r.isFinal) finalText+=r[0].transcript; else interim+=r[0].transcript; }
+    input.value=[base, finalText||interim].filter(Boolean).join(' ');
+    askAutoGrow();
+  };
+  rec.onerror=e=>{ if(e.error==='not-allowed'||e.error==='service-not-allowed') showToast('Microphone access is off for this page'); };
+  rec.onend=()=>{
+    askRec=null; document.getElementById('askMic').classList.remove('on');
+    if(finalText.trim()) askSend();
+  };
+  askRec=rec;
+  document.getElementById('askMic').classList.add('on');
+  try{ rec.start(); }catch{ askStopMic(); }
+}
 
 // ═══ SECTION: REVIEW (week / month look-back) ═══
 let reviewMode = 'week';
@@ -2291,7 +2659,7 @@ function showToast(msg,undoFn){
 }
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
-    ['sheetTask','sheetHabit','sheetBreaker','sheetProject','sheetPlanTomorrow','sheetCapture','sheetTaskDetail','sheetHabitDetail','sheetBreakerDetail'].forEach(closeSheet);
+    ['sheetTask','sheetHabit','sheetBreaker','sheetProject','sheetPlanTomorrow','sheetCapture','sheetTaskDetail','sheetHabitDetail','sheetBreakerDetail','sheetAsk'].forEach(closeSheet);
   }
   if((e.key==='Enter'||e.key===' ') && e.target.matches('[role="button"]')){
     e.preventDefault();
