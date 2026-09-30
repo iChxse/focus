@@ -378,6 +378,12 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
 .btn-save:hover{ filter:brightness(1.08); }
 .btn-danger{ padding:14px; border:1px solid rgba(196,102,90,0.4); border-radius:var(--r-md); color:var(--breaker); font-size:15px; font-weight:600; margin:0 var(--gutter) 12px; width:calc(100% - 2 * var(--gutter)); transition:background .15s; }
 .btn-danger:hover{ background:var(--breaker-soft); }
+.btn-quiet{ padding:14px; border:1px solid var(--line); border-radius:var(--r-md); color:var(--ink-dim); font-size:15px; font-weight:600; margin:0 var(--gutter) 12px; width:calc(100% - 2 * var(--gutter)); transition:border-color .15s,color .15s; }
+.btn-quiet:hover{ border-color:var(--accent); color:var(--ink); }
+.detail-head-row{ display:flex; justify-content:space-between; align-items:center; width:100%; }
+.lib-archived-toggle{ font-size:13px; color:var(--ink-faint); padding:12px 16px; cursor:pointer; }
+.lib-archived-toggle:hover{ color:var(--ink); }
+.lib-row.archived{ opacity:.6; }
 .slip-extra-row{ display:flex; gap:12px; }
 .slip-extra-row .field-input{ flex:1; }
 .recent-slip-row{ display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line-soft); font-size:14px; color:var(--ink-dim); }
@@ -510,7 +516,10 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
   ════════════════════════════════ -->
   <section class="view" id="view-project-detail">
     <div class="detail-head">
-      <button class="text-btn" onclick="switchView('library')">‹ Library</button>
+      <div class="detail-head-row">
+        <button class="text-btn" onclick="switchView('library')">‹ Library</button>
+        <button class="text-btn" onclick="openEditProject(pdProjectId)">Edit</button>
+      </div>
       <h1 class="view-title" id="pdTitle"></h1>
     </div>
     <div class="proj-stats" id="pdStats"></div>
@@ -661,15 +670,19 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
 <div class="sheet-overlay" id="sheetProject" onclick="sheetOverlayClick(event,'sheetProject')">
   <div class="sheet">
     <div class="sheet-handle"></div>
-    <div class="sheet-title">New project</div>
+    <div class="sheet-title" id="projectSheetTitle">New project</div>
     <div class="sheet-body">
       <input class="field-input" id="projectName" placeholder="e.g. Focus, E46, Trading" onkeydown="if(event.key==='Enter')saveProject()">
       <div class="field-label">Color</div>
       <div class="chip-row" id="projectColorRow"></div>
     </div>
+    <div id="projectManageWrap" style="display:none;">
+      <button class="btn-quiet" id="projectArchiveBtn" onclick="toggleProjectArchived()">Archive project</button>
+      <button class="btn-danger" onclick="deleteProjectConfirmed()">Delete project</button>
+    </div>
     <div class="sheet-actions">
       <button class="btn-cancel" onclick="closeSheet('sheetProject')">Cancel</button>
-      <button class="btn-save" onclick="saveProject()">Create</button>
+      <button class="btn-save" id="projectSaveBtn" onclick="saveProject()">Create</button>
     </div>
   </div>
 </div>
@@ -797,6 +810,7 @@ let editHabitId = null;
 let editBreakerId = null;
 let selectedProjectColor = PROJECT_COLORS[0];
 let editProjectId = null;
+let libShowArchived = false;
 let captureType = 'task';
 let captureTaskBucket = 'backlog';
 let focusTickInterval = null;
@@ -939,6 +953,8 @@ function taskBucket(t){
   if(t.soon) return 'soon';
   return 'backlog';
 }
+// Archived projects stay viewable in the Library but drop out of every picker.
+function activeProjects(){ return projects.filter(p=>!p.archived); }
 function projectTaskCounts(pid){
   const ts = tasks.filter(t=>t.projectId===pid);
   return {
@@ -1286,7 +1302,7 @@ function pickFocusTask(id){
 function renderFocusProjectChipsSheet(){
   const wrap=document.getElementById('focusProjectChipsSheet'); if(!wrap) return;
   wrap.innerHTML = `<button class="chip${!focusProjectId?' active':''}" onclick="pickFocusProjectSheet(null)">None</button>` +
-    projects.map(p=>`<button class="chip${focusProjectId===p.id?' active':''}" onclick="pickFocusProjectSheet('${p.id}')">${esc(p.name)}</button>`).join('');
+    activeProjects().map(p=>`<button class="chip${focusProjectId===p.id?' active':''}" onclick="pickFocusProjectSheet('${p.id}')">${esc(p.name)}</button>`).join('');
 }
 function pickFocusProjectSheet(pid){ focusProjectId=pid; renderFocusProjectChipsSheet(); }
 function setFocusGoal(min){
@@ -1545,7 +1561,16 @@ function makeBreakerLibRow(b){
 }
 function renderLibrary(){
   const projList=document.getElementById('libProjectsList'); projList.innerHTML='';
-  projects.forEach(p=>projList.appendChild(makeProjectLibRow(p)));
+  activeProjects().forEach(p=>projList.appendChild(makeProjectLibRow(p)));
+  if(!activeProjects().length) projList.innerHTML='<div class="empty-line">No projects yet.</div>';
+  const archived = projects.filter(p=>p.archived);
+  if(archived.length){
+    const tog=document.createElement('div'); tog.className='lib-archived-toggle'; tog.setAttribute('role','button'); tog.setAttribute('tabindex','0');
+    tog.textContent=(libShowArchived?'Hide':'Show')+' archived ('+archived.length+')';
+    tog.onclick=()=>{ libShowArchived=!libShowArchived; renderLibrary(); };
+    projList.appendChild(tog);
+    if(libShowArchived) archived.forEach(p=>{ const r=makeProjectLibRow(p); r.classList.add('archived'); projList.appendChild(r); });
+  }
   const habList=document.getElementById('libHabitsList'); habList.innerHTML='';
   habits.forEach(h=>habList.appendChild(makeHabitLibRow(h)));
   const brkList=document.getElementById('libBreakersList'); brkList.innerHTML='';
@@ -1566,7 +1591,7 @@ function openProjectDetail(pid){
 }
 function renderProjectDetail(){
   const p = projects.find(x=>x.id===pdProjectId); if(!p) return;
-  document.getElementById('pdTitle').textContent = p.name;
+  document.getElementById('pdTitle').textContent = p.name + (p.archived?' (archived)':'');
   const c = projectTaskCounts(p.id);
   const stats = document.getElementById('pdStats'); stats.innerHTML='';
   [['backlog','Backlog',c.backlog],['soon','Soon',c.soon],['scheduled','Scheduled',c.scheduled],['completed','Completed',c.completed]].forEach(([key,label,count])=>{
@@ -1689,7 +1714,7 @@ function updateTaskProjectBtn(){
 function renderTaskProjectMenu(){
   const menu=document.getElementById('taskProjectMenu');
   menu.innerHTML = `<button type="button" onclick="pickTaskProject(null)">Uncategorized</button>` +
-    projects.map(p=>`<button type="button" onclick="pickTaskProject('${p.id}')">${esc(p.name)}</button>`).join('');
+    activeProjects().map(p=>`<button type="button" onclick="pickTaskProject('${p.id}')">${esc(p.name)}</button>`).join('');
 }
 function pickTaskProject(pid){ selectedTaskProjectId=pid; updateTaskProjectBtn(); closeAllTaskDropdowns(); }
 function toggleTaskMore(){
@@ -1886,15 +1911,57 @@ function pickProjectColor(c){ selectedProjectColor=c; renderProjectColorRow(); }
 function openNewProject(){
   editProjectId=null; selectedProjectColor=PROJECT_COLORS[0];
   document.getElementById('projectName').value='';
+  document.getElementById('projectSheetTitle').textContent='New project';
+  document.getElementById('projectSaveBtn').textContent='Create';
+  document.getElementById('projectManageWrap').style.display='none';
   renderProjectColorRow();
   openSheet('sheetProject');
+}
+function openEditProject(pid){
+  const p=projects.find(x=>x.id===pid); if(!p) return;
+  editProjectId=pid; selectedProjectColor=p.color;
+  document.getElementById('projectName').value=p.name;
+  document.getElementById('projectSheetTitle').textContent='Edit project';
+  document.getElementById('projectSaveBtn').textContent='Save';
+  document.getElementById('projectArchiveBtn').textContent=p.archived?'Unarchive project':'Archive project';
+  document.getElementById('projectManageWrap').style.display='';
+  renderProjectColorRow();
+  openSheet('sheetProject');
+}
+function toggleProjectArchived(){
+  const p=projects.find(x=>x.id===editProjectId); if(!p) return;
+  p.archived=!p.archived;
+  saveAll(); closeSheet('sheetProject'); renderCurrentView();
+  showToast(p.archived?'Archived "'+p.name+'"':'Unarchived "'+p.name+'"', ()=>{ p.archived=!p.archived; saveAll(); renderCurrentView(); });
+}
+// Deleting a project keeps its tasks and history; they just become Uncategorized.
+function deleteProjectConfirmed(){
+  const pid=editProjectId, p=projects.find(x=>x.id===pid); if(!p) return;
+  const snap={ projects:JSON.stringify(projects), tasks:JSON.stringify(tasks), entries:JSON.stringify(entries) };
+  projects=projects.filter(x=>x.id!==pid);
+  tasks.forEach(t=>{ if(t.projectId===pid) t.projectId=null; });
+  entries.forEach(e=>{ if(e.projectId===pid) e.projectId=null; });
+  if(activeSession && activeSession.projectId===pid){ activeSession.projectId=null; sv('focus2_activeSession', activeSession); }
+  if(focusStoppedSummary && focusStoppedSummary.projectId===pid){ focusStoppedSummary.projectId=null; sv('focus2_focusSummary', focusStoppedSummary); }
+  if(focusProjectId===pid) focusProjectId=null;
+  saveAll(); closeSheet('sheetProject');
+  if(activeView==='project-detail') switchView('library'); else renderCurrentView();
+  showToast('Deleted "'+p.name+'"', ()=>{
+    projects=JSON.parse(snap.projects); tasks=JSON.parse(snap.tasks); entries=JSON.parse(snap.entries);
+    saveAll(); openProjectDetail(pid);
+  });
 }
 function saveProject(){
   const name=document.getElementById('projectName').value.trim();
   if(!name){ document.getElementById('projectName').focus(); return false; }
-  projects.push({ id:'p'+Date.now(), name, color:selectedProjectColor, createdAt:new Date().toISOString() });
+  if(editProjectId){
+    const p=projects.find(x=>x.id===editProjectId);
+    if(p){ p.name=name; p.color=selectedProjectColor; }
+  } else {
+    projects.push({ id:'p'+Date.now(), name, color:selectedProjectColor, createdAt:new Date().toISOString() });
+  }
   saveAll(); closeSheet('sheetProject'); renderCurrentView();
-  showToast('Project created');
+  showToast(editProjectId?'Project updated':'Project created');
   return true;
 }
 
@@ -1950,7 +2017,7 @@ function renderCaptureExtra(){
           <button type="button" class="dropdown-btn${proj?' set':''}" onclick="event.stopPropagation();toggleCaptureProjectMenu()">${esc(proj?proj.name:'Uncategorized')} <span class="caret">▾</span></button>
           <div class="dropdown-menu" id="captureProjectMenu" style="display:none;">
             <button type="button" onclick="setCaptureTaskProject(null)">Uncategorized</button>
-            ${projects.map(p=>`<button type="button" onclick="setCaptureTaskProject('${p.id}')">${esc(p.name)}</button>`).join('')}
+            ${activeProjects().map(p=>`<button type="button" onclick="setCaptureTaskProject('${p.id}')">${esc(p.name)}</button>`).join('')}
           </div>
         </div>
       </div>
@@ -1962,7 +2029,7 @@ function renderCaptureExtra(){
       <div class="field-label">Project</div>
       <div class="chip-row">
         <button class="chip${!captureDidProjectId?' active':''}" onclick="setCaptureDidProject(null)">None</button>
-        ${projects.map(p=>`<button class="chip${captureDidProjectId===p.id?' active':''}" onclick="setCaptureDidProject('${p.id}')">${esc(p.name)}</button>`).join('')}
+        ${activeProjects().map(p=>`<button class="chip${captureDidProjectId===p.id?' active':''}" onclick="setCaptureDidProject('${p.id}')">${esc(p.name)}</button>`).join('')}
       </div>`;
   } else if(captureType==='habit'){
     wrap.innerHTML = `<div class="field-label">Which habit?</div><div class="chip-row">${habits.map(h=>`<button class="chip${captureHabitId===h.id?' active':''}" onclick="setCaptureHabit('${h.id}')">${h.emoji} ${esc(h.name)}</button>`).join('')}</div>`;
