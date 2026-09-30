@@ -641,6 +641,10 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
         </div>
         <div class="field-label">Time</div>
         <input class="field-input" id="taskTimeInput" placeholder="e.g. 5:00 PM">
+        <div id="taskSpentWrap" style="display:none;">
+          <div class="field-label">Time spent</div>
+          <input type="number" inputmode="numeric" class="field-input" id="taskSpentInput" min="0" placeholder="Minutes (optional)">
+        </div>
         <div class="field-label">Repeats</div>
         <div class="chip-row" id="taskRepeatChips">
           <button class="chip" data-r="" onclick="pickTaskRepeat(null)">Never</button>
@@ -1044,11 +1048,13 @@ function entryDurationMin(e){
   if(e.end) return Math.round((new Date(e.end)-new Date(e.start))/60000);
   return null;
 }
+// Time counts from focus sessions and from minutes typed on a finished task.
+function isTimedEntry(e){ return e.type==='session' || (e.type==='task' && e.durationMin>0); }
 function taskSpentMin(taskId){
-  return entries.reduce((sum,e)=> e.type==='session' && e.taskId===taskId ? sum+(entryDurationMin(e)||0) : sum, 0);
+  return entries.reduce((sum,e)=> (e.type==='session' && e.taskId===taskId) || (e.type==='task' && e.sourceId===taskId) ? sum+(entryDurationMin(e)||0) : sum, 0);
 }
 function projectSpentMin(pid, fromIso){
-  return entries.reduce((sum,e)=> e.type==='session' && e.projectId===pid && (!fromIso || e.date>=fromIso) ? sum+(entryDurationMin(e)||0) : sum, 0);
+  return entries.reduce((sum,e)=> isTimedEntry(e) && e.projectId===pid && (!fromIso || e.date>=fromIso) ? sum+(entryDurationMin(e)||0) : sum, 0);
 }
 // Default: timed tasks by time, untimed after. A saved custom order wins; tasks
 // added since it was saved slot in by time (untimed ones go to the end).
@@ -1101,6 +1107,8 @@ function makeTaskRow(tk, opts={}){
   const metaParts=[];
   if(tk.completed){
     metaParts.push(new Date(tk.completedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})+' · '+fmtTimeShort(tk.completedAt));
+    const spent=taskSpentMin(tk.id);
+    if(spent) metaParts.push(fmtDurLong(spent));
   } else {
     if(tk.time) metaParts.push(tk.time);
     if(proj) metaParts.push(proj.name);
@@ -2061,7 +2069,9 @@ function openTaskSheet(taskId){
     selectedTaskRepeat = tk.repeat ? tk.repeat.freq : null;
     document.getElementById('taskNotes').value = tk.notes||'';
     document.getElementById('taskTimeInput').value = tk.time||'';
-    taskMoreOpen = !!(tk.notes || tk.estimateMin || tk.time || tk.repeat);
+    const ent = tk.completed ? entries.find(e=>e.id==='et_'+tk.id) : null;
+    document.getElementById('taskSpentInput').value = ent && ent.durationMin ? ent.durationMin : '';
+    taskMoreOpen = !!(tk.notes || tk.estimateMin || tk.time || tk.repeat || (ent && ent.durationMin));
   } else {
     selectedTaskBucket='backlog'; selectedTaskDate='';
     selectedTaskProjectId = addTaskDefaultProjectId || null;
@@ -2069,6 +2079,7 @@ function openTaskSheet(taskId){
     selectedTaskRepeat = null;
     document.getElementById('taskNotes').value='';
     document.getElementById('taskTimeInput').value='';
+    document.getElementById('taskSpentInput').value='';
     taskMoreOpen=false;
   }
   updateTaskDateBtn();
@@ -2083,6 +2094,7 @@ function openTaskSheet(taskId){
   // Finished tasks can be moved to the day they were actually done.
   const doneOn=document.getElementById('taskDoneOnInput');
   document.getElementById('taskDoneOnWrap').style.display = tk && tk.completed ? '' : 'none';
+  document.getElementById('taskSpentWrap').style.display = tk && tk.completed ? '' : 'none';
   document.getElementById('taskDateBtn').parentElement.style.display = tk && tk.completed ? 'none' : '';
   if(tk && tk.completed) document.getElementById('taskDateInput').style.display='none';
   doneOn.max=today();
@@ -2112,7 +2124,11 @@ function saveTask(){
       }
       // Keep its timeline entry in step with the edit.
       const entry=entries.find(e=>e.id==='et_'+tk.id);
-      if(entry && tk.completed){ entry.title=tk.title; entry.projectId=tk.projectId; entry.start=tk.completedAt; entry.date=toISO(new Date(tk.completedAt)); }
+      if(entry && tk.completed){
+        entry.title=tk.title; entry.projectId=tk.projectId; entry.start=tk.completedAt; entry.date=toISO(new Date(tk.completedAt));
+        const spent=parseInt(document.getElementById('taskSpentInput').value,10);
+        entry.durationMin = spent>0 ? spent : null;
+      }
     }
   } else {
     tasks.unshift({ id:newTaskId(), title, projectId:selectedTaskProjectId||null, notes, completed:false, completedAt:null, scheduledDate, soon, estimateMin:selectedTaskEstimate, time, repeat, createdAt:new Date().toISOString() });
@@ -2291,7 +2307,7 @@ function saveProject(){
 }
 
 // ═══ SECTION: CAPTURE ═══
-let captureSlipBreakerId=null, captureHabitId=null, captureTaskProjectId=null, captureTaskDate='', captureDidProjectId=null, captureDidMinutes=45, captureSlipMinutes=null;
+let captureSlipBreakerId=null, captureHabitId=null, captureTaskProjectId=null, captureTaskDate='', captureDidProjectId=null, captureDidMinutes=null, captureDidTimeOpen=false, captureSlipMinutes=null;
 function setCaptureType(type){
   captureType=type;
   document.querySelectorAll('.capture-type').forEach(b=>b.classList.toggle('active', b.dataset.t===type));
@@ -2348,14 +2364,17 @@ function renderCaptureExtra(){
       </div>
       ${captureTaskBucket==='date'?`<input type="date" class="field-input" id="captureTaskDateInput" value="${captureTaskDate||''}" onchange="captureTaskDate=this.value">`:''}`;
   } else if(captureType==='did'){
+    // Saved as a finished task for today; time spent is optional.
     wrap.innerHTML = `
-      <div class="field-label">Minutes spent</div>
-      <input type="number" class="field-input" id="captureMinutes" value="${captureDidMinutes}" min="1" onchange="captureDidMinutes=parseInt(this.value)||45">
       <div class="field-label">Project</div>
       <div class="chip-row">
         <button class="chip${!captureDidProjectId?' active':''}" onclick="setCaptureDidProject(null)">None</button>
         ${activeProjects().map(p=>`<button class="chip${captureDidProjectId===p.id?' active':''}" onclick="setCaptureDidProject('${p.id}')">${esc(p.name)}</button>`).join('')}
-      </div>`;
+      </div>
+      ${captureDidTimeOpen||captureDidMinutes ? `
+      <div class="field-label">Time spent</div>
+      <input type="number" inputmode="numeric" class="field-input" id="captureMinutes" min="0" placeholder="Minutes (optional)" value="${captureDidMinutes||''}" oninput="captureDidMinutes=parseInt(this.value)||null">`
+      : `<button type="button" class="more-toggle" onclick="captureDidTimeOpen=true;renderCaptureExtra();document.getElementById('captureMinutes')?.focus()">+ Time spent</button>`}`;
   } else if(captureType==='habit'){
     wrap.innerHTML = `<div class="field-label">Which habit?</div><div class="chip-row">${habits.map(h=>`<button class="chip${captureHabitId===h.id?' active':''}" onclick="setCaptureHabit('${h.id}')">${h.emoji} ${esc(h.name)}</button>`).join('')}</div>`;
   } else if(captureType==='slip'){
@@ -2382,7 +2401,7 @@ function guessCaptureType(){
 }
 function openCapture(){
   document.getElementById('captureText').value='';
-  captureTaskBucket='backlog'; captureTaskDate=''; captureTaskProjectId=null; captureDidProjectId=null; captureDidMinutes=45; captureSlipMinutes=null;
+  captureTaskBucket='backlog'; captureTaskDate=''; captureTaskProjectId=null; captureDidProjectId=null; captureDidMinutes=null; captureDidTimeOpen=false; captureSlipMinutes=null;
   captureHabitId = habits[0] ? habits[0].id : null;
   captureSlipBreakerId = breakers[0] ? breakers[0].id : null;
   captureTypeLocked=false;
@@ -2409,8 +2428,10 @@ function saveCapture(){
     tasks.unshift({ id:'t'+Date.now(), title:text, projectId:captureTaskProjectId||null, notes:'', completed:false, completedAt:null, scheduledDate, soon, estimateMin:null, time:'', createdAt:now.toISOString() });
     showToast('Task added');
   } else if(captureType==='did'){
-    const start=new Date(now.getTime()-captureDidMinutes*60000);
-    addEntry({ type:'session', title:text, subtitle:'', projectId:captureDidProjectId||null, date:toISO(start), start:start.toISOString(), end:now.toISOString(), durationMin:captureDidMinutes });
+    const at=now.toISOString();
+    const tk={ id:newTaskId(), title:text, projectId:captureDidProjectId||null, notes:'', completed:true, completedAt:at, scheduledDate:today(), soon:false, estimateMin:null, time:'', createdAt:at };
+    tasks.unshift(tk);
+    upsertEntry({ id:'et_'+tk.id, type:'task', sourceId:tk.id, title:text, subtitle:'', projectId:tk.projectId, date:today(), start:at, end:null, durationMin:captureDidMinutes>0?captureDidMinutes:null, createdAt:at });
     showToast('Logged');
   } else if(captureType==='habit'){
     if(captureHabitId && !habitCompletedOn(captureHabitId,today())) toggleHabitToday(captureHabitId);
@@ -2522,7 +2543,7 @@ function reviewStats(start,end){
   const t=today();
   const lastCounted = end<t ? end : t;
   const inRange = e=>e.date>=start && e.date<=end;
-  const sessions = entries.filter(e=>e.type==='session' && inRange(e));
+  const sessions = entries.filter(e=>isTimedEntry(e) && inRange(e));
   const focusMin = sessions.reduce((a,e)=>a+(entryDurationMin(e)||0),0);
   const byDay = {};
   sessions.forEach(e=>{ byDay[e.date]=(byDay[e.date]||0)+(entryDurationMin(e)||0); });
