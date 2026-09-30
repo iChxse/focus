@@ -1094,7 +1094,7 @@ function makeTaskRow(tk, opts={}){
     if(tk.repeat) metaParts.push('↻ '+(REPEAT_SHORT[tk.repeat.freq]||'Repeats'));
   }
   el.innerHTML=`
-    <button type="button" class="check-dot" onclick="toggleTaskDone('${tk.id}',event)"></button>
+    <button type="button" class="check-dot" onclick="taskDotTap('${tk.id}',event)"></button>
     <div class="check-body">
       <div class="check-title">${esc(tk.title)}</div>
       ${metaParts.length?`<div class="check-meta">${proj?`<span class="dot-tag" style="background:${proj.color}"></span>`:''}${esc(metaParts.join(' · '))}</div>`:''}
@@ -1206,6 +1206,7 @@ function toggleTaskDone(taskId,e,silent,onIso){
   if(e) e.stopPropagation();
   const tk = tasks.find(t=>t.id===taskId); if(!tk) return;
   const wasCompleting = !tk.completed;
+  const snap = wasCompleting ? null : { tasks:JSON.stringify(tasks), entries:JSON.stringify(entries) };
   tk.completed = !tk.completed;
   if(tk.completed){
     const now=onIso ? momentOn(onIso, tk.time) : new Date();
@@ -1234,6 +1235,22 @@ function toggleTaskDone(taskId,e,silent,onIso){
     const next = tk.nextId && tasks.find(t=>t.id===tk.nextId);
     showToast(next ? 'Done. Next one '+fmtScheduleLabel(next.scheduledDate) : 'Completed "'+tk.title+'"', ()=>toggleTaskDone(taskId));
   }
+  // Unticking can be undone too, putting back the original completion time and log entry.
+  if(!wasCompleting && !silent){
+    showToast('Marked "'+tk.title+'" not done', ()=>{ tasks=JSON.parse(snap.tasks); entries=JSON.parse(snap.entries); saveAll(); renderCurrentView(); });
+  }
+}
+// A task finished on an earlier day opens its details instead of unticking on a
+// stray tap; it can be marked not done from there.
+function taskDotTap(taskId,e){
+  if(e) e.stopPropagation();
+  const tk=tasks.find(t=>t.id===taskId); if(!tk) return;
+  if(tk.completed && tk.completedAt && toISO(new Date(tk.completedAt))<today()) openTaskDetailSheet(taskId);
+  else toggleTaskDone(taskId);
+}
+function markTaskNotDone(taskId){
+  closeSheet('sheetTaskDetail');
+  toggleTaskDone(taskId);
 }
 function toggleHabitToday(habitId,e){
   if(e) e.stopPropagation();
@@ -1889,7 +1906,8 @@ function openTaskDetailSheet(taskId){
     if(tk.repeat) rows.push(['Repeats', repeatLabel(tk.repeat)]);
     rows.push(['Status','Incomplete']);
   }
-  document.getElementById('taskDetailBody').innerHTML = rows.map(([k,v])=>`<div class="detail-row"><span class="detail-row-label">${esc(k)}</span><span class="detail-row-value">${esc(v)}</span></div>`).join('');
+  document.getElementById('taskDetailBody').innerHTML = rows.map(([k,v])=>`<div class="detail-row"><span class="detail-row-label">${esc(k)}</span><span class="detail-row-value">${esc(v)}</span></div>`).join('')
+    + (tk.completed ? `<button type="button" class="btn-quiet" style="margin:16px 0 0;width:100%;" onclick="markTaskNotDone('${tk.id}')">Mark not done</button>` : '');
   const actions=document.getElementById('taskDetailActions');
   if(tk.completed){
     actions.innerHTML = `<button class="btn-cancel" onclick="closeSheet('sheetTaskDetail');openTaskSheet('${tk.id}')">Edit</button><button class="btn-save" onclick="viewTaskInTimeline('${tk.id}')">View in timeline</button>`;
