@@ -237,6 +237,13 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .day-dow{ font-family:var(--font-head); font-size:17px; font-weight:800; letter-spacing:-0.3px; }
 .day-date{ font-size:13px; color:var(--ink-faint); }
 .day-summary{ font-size:12.5px; color:var(--ink-faint); padding:10px 4px 2px; }
+.day-edit{ margin-left:auto; font-size:13px; font-weight:600; color:var(--accent); padding:4px 2px; }
+.day-edit:hover{ color:var(--ink); }
+.entry-row{ cursor:pointer; }
+.day-editor .card{ margin-bottom:16px; }
+.day-editor .field-label{ margin-bottom:7px; }
+.day-editor .remove-btn{ padding:6px 0 6px 8px; }
+.day-editor .quick-add-row{ margin-bottom:16px; }
 
 /* ─────────────────────────────────────────
    PLAN VIEW
@@ -326,6 +333,15 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 ───────────────────────────────────────── */
 .sheet-overlay{ display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px); z-index:200; align-items:flex-end; justify-content:center; padding-top:env(safe-area-inset-top, 0px); }
 .sheet-overlay.open{ display:flex; }
+/* The page behind an open sheet is locked (see lockPageScroll); the overlay
+   itself never pans, only the sheet scrolls. */
+.sheet-overlay{ touch-action:none; overscroll-behavior:contain; }
+.sheet{ touch-action:pan-y; }
+.sheet.dragging{ transition:none; }
+body.sheet-locked{ position:fixed; left:0; right:0; overflow:hidden; }
+/* Swipe back: the sub-view follows the finger */
+.view.swiping{ transition:none; will-change:transform; box-shadow:-12px 0 30px rgba(0,0,0,.5); background:var(--bg); }
+.view.swipe-settle{ transition:transform .22s cubic-bezier(.32,.72,0,1); }
 .sheet{
   background:var(--bg-sheet); border:1px solid var(--line-soft); border-bottom:none;
   border-radius:var(--r-xl) var(--r-xl) 0 0;
@@ -334,7 +350,8 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
   transform:translateY(100%); transition:transform .3s cubic-bezier(.32,.72,0,1);
 }
 .sheet-overlay.open .sheet{ transform:translateY(0); }
-.sheet-handle{ width:36px; height:4px; border-radius:4px; background:var(--line); margin:10px auto 2px; }
+.sheet-handle{ width:36px; height:4px; border-radius:4px; background:var(--line); margin:10px auto 2px; position:relative; }
+.sheet-handle::before{ content:''; position:absolute; inset:-12px -60px; }
 .sheet-title{ font-family:var(--font-head); font-size:21px; font-weight:800; letter-spacing:-0.5px; padding:10px var(--gutter) 2px; }
 .sheet-body{ padding:12px var(--gutter) 14px; }
 .field-input{
@@ -462,7 +479,7 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
         <h1 class="view-title">Timeline</h1>
         <div class="view-head-actions">
           <button class="plan-action" onclick="openReview()">Review</button>
-          <input type="date" class="jump-input" id="timelineJumpInput" onchange="jumpToDate(this.value)">
+          <input type="date" class="jump-input" id="timelineJumpInput" aria-label="Go to or edit a day" onchange="jumpToDate(this.value);this.value=''">
         </div>
       </div>
       <input class="search-input" id="timelineSearch" placeholder="Search your history…" oninput="renderTimeline()">
@@ -526,7 +543,7 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
   <section class="view" id="view-project-detail">
     <div class="detail-head">
       <div class="detail-head-row">
-        <button class="text-btn" onclick="switchView('library')">‹ Library</button>
+        <button class="text-btn" onclick="goBack()">‹ Library</button>
         <button class="text-btn" onclick="openEditProject(pdProjectId)">Edit</button>
       </div>
       <h1 class="view-title" id="pdTitle"></h1>
@@ -544,7 +561,7 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
   ════════════════════════════════ -->
   <section class="view" id="view-review">
     <div class="detail-head">
-      <button class="text-btn" onclick="switchView('timeline')">‹ Timeline</button>
+      <button class="text-btn" onclick="goBack()">‹ Timeline</button>
       <h1 class="view-title">Review</h1>
     </div>
     <div class="proj-stats" id="reviewModeTabs"></div>
@@ -591,6 +608,10 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
         </div>
       </div>
       <input type="date" id="taskDateInput" class="field-input" style="display:none;" onchange="handleTaskDate(this.value)">
+      <div id="taskDoneOnWrap" style="display:none;">
+        <div class="field-label">Done on</div>
+        <input type="date" id="taskDoneOnInput" class="field-input" style="color-scheme:dark;">
+      </div>
       <button type="button" class="more-toggle" id="taskMoreToggle" onclick="toggleTaskMore()">+ Notes, estimate, time, or repeat</button>
       <div id="taskMoreFields" style="display:none;">
         <div class="field-label" style="margin-top:14px;">Notes</div>
@@ -781,6 +802,20 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
     <div class="sheet-title" id="breakerDetailTitle"></div>
     <div class="sheet-body" id="breakerDetailBody"></div>
     <div class="sheet-actions" id="breakerDetailActions"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     SHEET: EDIT A DAY (today or any past day)
+════════════════════════════════ -->
+<div class="sheet-overlay" id="sheetDay" onclick="sheetOverlayClick(event,'sheetDay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="dayEditTitle"></div>
+    <div class="sheet-body day-editor" id="dayEditBody"></div>
+    <div class="sheet-actions">
+      <button class="btn-save" style="flex:1;" onclick="closeSheet('sheetDay')">Done</button>
+    </div>
   </div>
 </div>
 
@@ -1020,6 +1055,14 @@ function daySummary(iso){
   const doneHabits = scheduledHabits.filter(h=>habitCompletedOn(h.id,iso));
   return { tasksCompleted, habitsDone:doneHabits.length, habitsTotal:scheduledHabits.length };
 }
+// A timestamp on `iso` for things logged after the fact: now for today,
+// otherwise the task's own time (if it has one) or noon.
+function momentOn(iso, timeLabel){
+  if(iso===today()) return new Date();
+  const d=new Date(iso+'T12:00:00'), m=parseTimeLabelMinutes(timeLabel);
+  if(m!==9999) d.setHours(Math.floor(m/60), m%60, 0, 0);
+  return d;
+}
 function parseTimeLabelMinutes(label){
   if(!label) return 9999;
   const m = label.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
@@ -1076,6 +1119,7 @@ function makeEntryRow(e){
       ${e.subtitle?`<div class="entry-sub">${esc(e.subtitle)}</div>`:''}
       ${proj?`<div class="entry-proj" style="color:${proj.color}">${esc(proj.name)}</div>`:''}
     </div>`;
+  el.onclick=()=>openDayEditor(e.date);
   return el;
 }
 
@@ -1155,13 +1199,14 @@ function renderMiniTimeline(){
 }
 
 // ═══ SECTION: TASK / HABIT / BREAKER TOGGLES ═══
-function toggleTaskDone(taskId,e,silent){
+// `onIso` marks it done on an earlier day instead of now (from the day editor).
+function toggleTaskDone(taskId,e,silent,onIso){
   if(e) e.stopPropagation();
   const tk = tasks.find(t=>t.id===taskId); if(!tk) return;
   const wasCompleting = !tk.completed;
   tk.completed = !tk.completed;
   if(tk.completed){
-    const now=new Date();
+    const now=onIso ? momentOn(onIso, tk.time) : new Date();
     tk.completedAt = now.toISOString();
     upsertEntry({ id:'et_'+tk.id, type:'task', sourceId:tk.id, title:tk.title, subtitle:'', projectId:tk.projectId||null, date:toISO(now), start:now.toISOString(), end:null, durationMin:null, createdAt:now.toISOString() });
     if(tk.repeat && !(tk.nextId && tasks.some(t=>t.id===tk.nextId))){
@@ -1190,7 +1235,9 @@ function toggleTaskDone(taskId,e,silent){
 }
 function toggleHabitToday(habitId,e){
   if(e) e.stopPropagation();
-  const t=today();
+  toggleHabitOn(habitId, today());
+}
+function toggleHabitOn(habitId,t,silent){
   const was = habitCompletedOn(habitId,t);
   const h = habits.find(x=>x.id===habitId); if(!h) return;
   if(was){
@@ -1198,14 +1245,14 @@ function toggleHabitToday(habitId,e){
     entries = entries.filter(e2=>!(e2.type==='habit' && e2.sourceId===habitId && e2.date===t));
   } else {
     completions.push({habitId,date:t});
-    const now=new Date();
+    const now=momentOn(t);
     upsertEntry({ id:'eh_h_'+habitId+'_'+t, type:'habit', sourceId:habitId, title:h.name, subtitle:'', projectId:null, date:t, start:now.toISOString(), end:null, durationMin:null, createdAt:now.toISOString() });
     const streak = calcStreak(h);
     if(streak>(h.bestStreak||0)) h.bestStreak=streak;
   }
   saveAll();
   renderCurrentView();
-  if(!was) showToast('Completed "'+h.name+'"', ()=>toggleHabitToday(habitId));
+  if(!was && !silent) showToast('Completed "'+h.name+'"', ()=>toggleHabitOn(habitId,t));
 }
 function toggleBreakerSuccess(breakerId,e){
   if(e) e.stopPropagation();
@@ -1479,7 +1526,7 @@ function makeDayBlock(dateIso, dayEntries){
   const md = d.toLocaleDateString('en-US',{month:'long',day:'numeric'});
   const s = daySummary(dateIso);
   wrap.innerHTML = `
-    <div class="day-heading"><span class="day-dow">${isToday?'Today':dow}</span><span class="day-date">${md}</span></div>
+    <div class="day-heading"><span class="day-dow">${isToday?'Today':dow}</span><span class="day-date">${md}</span>${dateIso<=today()?`<button type="button" class="day-edit" onclick="openDayEditor('${dateIso}')">Edit</button>`:''}</div>
     <div class="day-entries"></div>
     <div class="day-summary">${s.tasksCompleted} task${s.tasksCompleted!==1?'s':''} completed${s.habitsTotal?' · Habits '+s.habitsDone+'/'+s.habitsTotal:''}</div>`;
   const entriesWrap = wrap.querySelector('.day-entries');
@@ -1489,6 +1536,7 @@ function makeDayBlock(dateIso, dayEntries){
 function renderTimeline(){
   const body=document.getElementById('timelineBody');
   body.innerHTML='';
+  document.getElementById('timelineJumpInput').max=today();
   const q=(document.getElementById('timelineSearch')?.value||'').trim().toLowerCase();
   const dates=[...new Set(entries.map(e=>e.date))].sort((a,b)=>b.localeCompare(a));
   let any=false;
@@ -1501,10 +1549,13 @@ function renderTimeline(){
   });
   if(!any) body.innerHTML = `<div class="empty-line" style="padding:40px 0;text-align:center;">${q?'No matches.':'Nothing recorded yet.'}</div>`;
 }
+// Days with entries scroll into view; an empty past day opens straight in the editor.
 function jumpToDate(dateIso){
+  if(!dateIso) return;
   const el=document.getElementById('day-'+dateIso);
   if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
-  else showToast('No entries that day');
+  else if(dateIso<=today()) openDayEditor(dateIso);
+  else showToast('Use Plan for days ahead');
 }
 function highlightEntry(entryId){
   const el=document.getElementById('entry-'+entryId);
@@ -1517,6 +1568,121 @@ function viewTaskInTimeline(taskId){
   const entry = entries.find(e=>e.type==='task' && e.sourceId===taskId);
   switchView('timeline');
   if(entry){ jumpToDate(entry.date); highlightEntry(entry.id); }
+}
+
+// ═══ SECTION: DAY EDITOR (fix up today or a past day) ═══
+let dayEditDate=null;
+let dayEditReturn=false;   // reopen the day editor when the task sheet closes
+function openDayEditor(iso){
+  dayEditDate=iso;
+  renderDayEditor();
+  openSheet('sheetDay');
+}
+function dayEditorTasks(iso){
+  const doneIds=new Set(entries.filter(e=>e.type==='task' && e.date===iso).map(e=>e.sourceId));
+  return sortDayTasks(tasks.filter(t=>doneIds.has(t.id) || (!t.completed && t.scheduledDate===iso)), iso);
+}
+function renderDayEditor(){
+  const iso=dayEditDate; if(!iso) return;
+  const d=new Date(iso+'T12:00:00');
+  document.getElementById('dayEditTitle').textContent = iso===today() ? 'Today' : d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  const card=(rows,empty)=>`<div class="card">${rows.length?rows.join(''):`<div class="empty-line">${empty}</div>`}</div>`;
+
+  const taskRows=dayEditorTasks(iso).map(tk=>{
+    const proj=projects.find(p=>p.id===tk.projectId);
+    const meta=[tk.completed ? fmtTimeShort(tk.completedAt) : 'Not done'];
+    if(proj) meta.push(proj.name);
+    return `<div class="check-row${tk.completed?' done':''}" role="button" tabindex="0" onclick="editTaskFromDay('${tk.id}')">
+      <button type="button" class="check-dot" aria-label="${tk.completed?'Mark not done':'Mark done'}" onclick="event.stopPropagation();dayToggleTask('${tk.id}')"></button>
+      <div class="check-body"><div class="check-title">${esc(tk.title)}</div><div class="check-meta">${proj?`<span class="dot-tag" style="background:${proj.color}"></span>`:''}${esc(meta.join(' · '))}</div></div>
+      <button type="button" class="remove-btn" onclick="event.stopPropagation();dayRemoveTask('${tk.id}')">Remove</button>
+    </div>`;
+  });
+  const habitRows=habits.filter(h=>isHabitScheduledOnDate(h,iso) || habitCompletedOn(h.id,iso)).map(h=>{
+    const done=habitCompletedOn(h.id,iso);
+    return `<div class="check-row${done?' done':''}" role="button" tabindex="0" onclick="dayToggleHabit('${h.id}')">
+      <span class="check-dot"></span>
+      <div class="check-body"><div class="check-title">${esc(h.name)}</div><div class="check-meta">${done?'Done':'Not done'}</div></div>
+    </div>`;
+  });
+  const breakerRows=breakers.map(b=>{
+    const rec=breakerResultOn(b.id,iso), state=rec?rec.result:null;
+    return `<div class="check-row${state==='success'?' done':''}${state==='failure'?' failed':''}" role="button" tabindex="0" onclick="dayCycleBreaker('${b.id}')">
+      <span class="check-dot"></span>
+      <div class="check-body"><div class="check-title">${esc(b.name)}</div><div class="check-meta">${state==='success'?'Clean':state==='failure'?'Slipped':'Not logged'} · tap to change</div></div>
+    </div>`;
+  });
+  const sessionRows=entries.filter(e=>e.type==='session' && e.date===iso).sort((a,b)=>new Date(a.start)-new Date(b.start)).map(e=>{
+    const dur=entryDurationMin(e);
+    return `<div class="already-planned-row" style="padding:10px 14px;"><span>${esc(e.title)}<span class="entry-duration" style="margin-left:8px;">${dur!=null?fmtDurLong(dur):''}</span></span><button type="button" class="remove-btn" onclick="dayRemoveEntry('${e.id}')">Remove</button></div>`;
+  });
+
+  document.getElementById('dayEditBody').innerHTML = `
+    <div class="field-label">Tasks</div>
+    ${card(taskRows,'No tasks on this day.')}
+    <div class="quick-add-row">
+      <input class="field-input" id="dayQuickInput" placeholder="Add something you did" onkeydown="if(event.key==='Enter'){event.preventDefault();dayQuickAdd();}">
+      <button type="button" class="quick-add-btn" aria-label="Add" onclick="dayQuickAdd()">+</button>
+    </div>
+    ${habits.length?`<div class="field-label">Habits</div>${card(habitRows,'No habits scheduled this day.')}`:''}
+    ${breakers.length?`<div class="field-label">Breakers</div>${card(breakerRows,'')}`:''}
+    ${sessionRows.length?`<div class="field-label">Logged time</div>${card(sessionRows,'')}`:''}`;
+}
+function refreshDay(){ saveAll(); renderDayEditor(); renderCurrentView(); }
+function dayToggleTask(id){
+  const tk=tasks.find(t=>t.id===id); if(!tk) return;
+  const iso=dayEditDate;
+  if(!tk.completed){ toggleTaskDone(id, null, true, iso); refreshDay(); return; }
+  toggleTaskDone(id, null, true);
+  // Unmarked on a past day: it still needs doing, so bring it back to today.
+  if(tk.scheduledDate && tk.scheduledDate<today()){
+    const was=tk.scheduledDate;
+    tk.scheduledDate=today();
+    refreshDay();
+    showToast('Moved back to today', ()=>{ tk.scheduledDate=was; toggleTaskDone(id, null, true, iso); refreshDay(); });
+  } else refreshDay();
+}
+function dayRemoveTask(id){
+  const tk=tasks.find(t=>t.id===id); if(!tk) return;
+  const snap={ tasks:JSON.stringify(tasks), entries:JSON.stringify(entries) };
+  tasks=tasks.filter(t=>t.id!==id);
+  entries=entries.filter(e=>!(e.type==='task' && e.sourceId===id));
+  refreshDay();
+  showToast('Removed "'+tk.title+'"', ()=>{ tasks=JSON.parse(snap.tasks); entries=JSON.parse(snap.entries); refreshDay(); });
+}
+function dayQuickAdd(){
+  const inp=document.getElementById('dayQuickInput');
+  const title=inp.value.trim(); if(!title) return;
+  const iso=dayEditDate, at=momentOn(iso).toISOString();
+  const tk={ id:newTaskId(), title, projectId:null, notes:'', completed:true, completedAt:at, scheduledDate:iso, soon:false, estimateMin:null, time:'', createdAt:new Date().toISOString() };
+  tasks.unshift(tk);
+  upsertEntry({ id:'et_'+tk.id, type:'task', sourceId:tk.id, title, subtitle:'', projectId:null, date:iso, start:at, end:null, durationMin:null, createdAt:tk.createdAt });
+  refreshDay();
+  setTimeout(()=>document.getElementById('dayQuickInput')?.focus(),0);
+}
+function dayToggleHabit(id){ toggleHabitOn(id, dayEditDate, true); refreshDay(); }
+// Not logged → Clean → Slipped → Not logged
+function dayCycleBreaker(id){
+  const iso=dayEditDate, rec=breakerResultOn(id,iso);
+  if(!rec) pushBreakerResult(id, iso, 'success', momentOn(iso).toISOString(), null, '');
+  else if(rec.result==='success') pushBreakerResult(id, iso, 'failure', rec.at, null, '');
+  else {
+    breakerResults=breakerResults.filter(r=>r.id!==rec.id);
+    entries=entries.filter(e=>!(e.type==='breaker' && e.sourceId===id && e.date===iso));
+  }
+  refreshDay();
+}
+function dayRemoveEntry(entryId){
+  const e=entries.find(x=>x.id===entryId); if(!e) return;
+  const snap=JSON.stringify(entries);
+  entries=entries.filter(x=>x.id!==entryId);
+  refreshDay();
+  showToast('Removed "'+e.title+'"', ()=>{ entries=JSON.parse(snap); refreshDay(); });
+}
+function editTaskFromDay(id){
+  dayEditReturn=true;
+  closeSheet('sheetDay');
+  openTaskSheet(id);
 }
 
 // ═══ SECTION: PLAN VIEW ═══
@@ -1719,7 +1885,7 @@ function openTaskDetailSheet(taskId){
   document.getElementById('taskDetailBody').innerHTML = rows.map(([k,v])=>`<div class="detail-row"><span class="detail-row-label">${esc(k)}</span><span class="detail-row-value">${esc(v)}</span></div>`).join('');
   const actions=document.getElementById('taskDetailActions');
   if(tk.completed){
-    actions.innerHTML = `<button class="btn-cancel" onclick="closeSheet('sheetTaskDetail')">Close</button><button class="btn-save" onclick="viewTaskInTimeline('${tk.id}')">View in timeline</button>`;
+    actions.innerHTML = `<button class="btn-cancel" onclick="closeSheet('sheetTaskDetail');openTaskSheet('${tk.id}')">Edit</button><button class="btn-save" onclick="viewTaskInTimeline('${tk.id}')">View in timeline</button>`;
   } else {
     actions.innerHTML = `<button class="btn-cancel" onclick="closeSheet('sheetTaskDetail')">Close</button><button class="btn-save" onclick="closeSheet('sheetTaskDetail');openTaskSheet('${tk.id}')">Edit</button>`;
   }
@@ -1859,6 +2025,13 @@ function openTaskSheet(taskId){
   document.getElementById('taskDateInput').value = selectedTaskDate;
   document.getElementById('taskMoreFields').style.display = taskMoreOpen ? '' : 'none';
   document.getElementById('taskMoreToggle').style.display = taskMoreOpen ? 'none' : '';
+  // Finished tasks can be moved to the day they were actually done.
+  const doneOn=document.getElementById('taskDoneOnInput');
+  document.getElementById('taskDoneOnWrap').style.display = tk && tk.completed ? '' : 'none';
+  document.getElementById('taskDateBtn').parentElement.style.display = tk && tk.completed ? 'none' : '';
+  if(tk && tk.completed) document.getElementById('taskDateInput').style.display='none';
+  doneOn.max=today();
+  doneOn.value = tk && tk.completed && tk.completedAt ? toISO(new Date(tk.completedAt)) : '';
   openSheet('sheetTask');
 }
 function saveTask(){
@@ -1872,15 +2045,26 @@ function saveTask(){
   const repeat = buildRepeat(selectedTaskRepeat, scheduledDate);
   const notes = document.getElementById('taskNotes').value.trim();
   const time = document.getElementById('taskTimeInput').value.trim();
+  const wasEdit=!!editTaskId;
   if(editTaskId){
     const tk=tasks.find(t=>t.id===editTaskId);
-    if(tk){ tk.title=title; tk.projectId=selectedTaskProjectId||null; tk.scheduledDate=scheduledDate; tk.soon=soon; tk.notes=notes; tk.estimateMin=selectedTaskEstimate; tk.time=time; tk.repeat=repeat; }
+    if(tk){
+      tk.title=title; tk.projectId=selectedTaskProjectId||null; tk.scheduledDate=scheduledDate; tk.soon=soon; tk.notes=notes; tk.estimateMin=selectedTaskEstimate; tk.time=time; tk.repeat=repeat;
+      const doneOn=document.getElementById('taskDoneOnInput').value;
+      if(tk.completed && doneOn && doneOn<=today() && doneOn!==toISO(new Date(tk.completedAt))){
+        tk.completedAt=momentOn(doneOn, tk.time).toISOString();
+        if(tk.scheduledDate) tk.scheduledDate=doneOn;
+      }
+      // Keep its timeline entry in step with the edit.
+      const entry=entries.find(e=>e.id==='et_'+tk.id);
+      if(entry && tk.completed){ entry.title=tk.title; entry.projectId=tk.projectId; entry.start=tk.completedAt; entry.date=toISO(new Date(tk.completedAt)); }
+    }
   } else {
     tasks.unshift({ id:newTaskId(), title, projectId:selectedTaskProjectId||null, notes, completed:false, completedAt:null, scheduledDate, soon, estimateMin:selectedTaskEstimate, time, repeat, createdAt:new Date().toISOString() });
   }
   addTaskDefaultProjectId=null;
   saveAll(); closeSheet('sheetTask'); renderCurrentView();
-  showToast(editTaskId?'Task updated':'Task added');
+  showToast(wasEdit?'Task updated':'Task added');
   return true;
 }
 function deleteTaskConfirmed(){
@@ -2186,13 +2370,80 @@ function saveCapture(){
 }
 
 // ═══ SECTION: GENERIC SHEETS ═══
-function openSheet(id){ document.getElementById(id).classList.add('open'); }
+function openSheet(id){ document.getElementById(id).classList.add('open'); lockPageScroll(); }
 function closeSheet(id){
-  document.getElementById(id).classList.remove('open');
+  const el=document.getElementById(id);
+  const wasOpen=el.classList.contains('open');
+  el.classList.remove('open');
+  const sheet=el.querySelector('.sheet'); sheet.style.transform=''; sheet.classList.remove('dragging');
   if(id==='sheetTask'){ editTaskId=null; addTaskDefaultProjectId=null; }
   if(id==='sheetHabit') editHabitId=null;
   if(id==='sheetBreaker') editBreakerId=null;
+  if(id==='sheetTask' && wasOpen && dayEditReturn){ dayEditReturn=false; renderDayEditor(); openSheet('sheetDay'); }
+  lockPageScroll();
 }
+// iOS scrolls the page behind a fixed overlay unless the page itself is pinned,
+// so while any sheet is open the body is fixed in place at its scroll position.
+let lockedScrollY=0;
+function lockPageScroll(){
+  const b=document.body, anyOpen=!!document.querySelector('.sheet-overlay.open');
+  if(anyOpen && !b.classList.contains('sheet-locked')){
+    lockedScrollY=window.scrollY;
+    b.style.top=(-lockedScrollY)+'px';
+    b.classList.add('sheet-locked');
+  } else if(!anyOpen && b.classList.contains('sheet-locked')){
+    b.classList.remove('sheet-locked');
+    b.style.top='';
+    window.scrollTo(0, lockedScrollY);
+  }
+}
+// Swipe a sheet down to close it. The pull starts when the sheet's own content
+// is scrolled to the top and the finger moves down; otherwise the sheet scrolls.
+function dismissSheet(id){
+  const sheet=document.getElementById(id).querySelector('.sheet');
+  sheet.classList.remove('dragging');
+  sheet.style.transform='translateY(100%)';
+  setTimeout(()=>closeSheet(id), 220);
+}
+function initSheetSwipe(overlay){
+  const sheet=overlay.querySelector('.sheet');
+  let y0=0, x0=0, base=null, t0=0, off=0, skip=false;
+  sheet.addEventListener('touchstart', e=>{
+    const t=e.touches[0];
+    skip = e.touches.length!==1 || !!e.target.closest('.dropdown-menu');
+    y0=t.clientY; x0=t.clientX; base=null; off=0;
+  }, {passive:true});
+  sheet.addEventListener('touchmove', e=>{
+    if(skip) return;
+    const t=e.touches[0], dy=t.clientY-y0;
+    if(base===null){
+      if(sheet.scrollTop>0){ y0=t.clientY; return; }
+      if(dy<=0 || Math.abs(t.clientX-x0)>dy*1.5) return;
+      // Claim the gesture on the first downward move, or iOS starts a rubber-band scroll.
+      e.preventDefault();
+      if(dy<6) return;
+      base=t.clientY; t0=Date.now();
+      sheet.classList.add('dragging');
+      document.activeElement?.blur?.();
+    }
+    e.preventDefault();
+    off=Math.max(0, t.clientY-base);
+    sheet.style.transform=`translateY(${off}px)`;
+  }, {passive:false});
+  const end=()=>{
+    if(base===null) return;
+    base=null;
+    sheet.classList.remove('dragging');
+    const fast = off>40 && off/Math.max(1,Date.now()-t0) > 0.5;
+    if(off > sheet.offsetHeight*0.25 || fast) dismissSheet(overlay.id);
+    else sheet.style.transform='';
+  };
+  sheet.addEventListener('touchend', end);
+  sheet.addEventListener('touchcancel', end);
+  // Touches on the dimmed backdrop never scroll anything.
+  overlay.addEventListener('touchmove', e=>{ if(!e.target.closest('.sheet')) e.preventDefault(); }, {passive:false});
+}
+document.querySelectorAll('.sheet-overlay').forEach(initSheetSwipe);
 function sheetOverlayClick(e,id){ if(e.target===document.getElementById(id)) closeSheet(id); }
 
 // ═══ SECTION: REVIEW (week / month look-back) ═══
@@ -2337,12 +2588,80 @@ function renderReview(){
 // ═══ SECTION: NAV / TOAST / KEYBOARD ═══
 const VIEWS=['now','timeline','plan','library','project-detail','review'];
 const NAV_VIEWS=['now','timeline','plan','library'];
-function switchView(v){
+// Sub-views and the tab they go back to. Entering one pushes a history entry,
+// so the phone's own back gesture/button returns to the tab as well.
+const SUB_VIEWS={ 'project-detail':'library', review:'timeline' };
+let ignoreNextPop=false;
+function switchView(v, fromHistory){
+  if(!fromHistory){
+    if(SUB_VIEWS[v]){
+      if(SUB_VIEWS[activeView]) history.replaceState({ sub:v }, '');
+      else history.pushState({ sub:v }, '');
+    } else if(SUB_VIEWS[activeView] && history.state && history.state.sub){
+      // Left a sub-view some other way (tab bar, delete): drop its history entry.
+      ignoreNextPop=true; history.back();
+    }
+  }
   activeView=v;
-  VIEWS.forEach(x=>document.getElementById('view-'+x)?.classList.toggle('active', x===v));
+  VIEWS.forEach(x=>{ const el=document.getElementById('view-'+x); if(!el) return; el.classList.toggle('active', x===v); el.style.transform=''; });
   NAV_VIEWS.forEach(x=>document.getElementById('navi-'+x)?.classList.toggle('active', x===v || (v==='review' && x==='timeline')));
   renderCurrentView();
 }
+function goBack(){
+  if(!SUB_VIEWS[activeView]) return;
+  if(history.state && history.state.sub) history.back();
+  else switchView(SUB_VIEWS[activeView]);
+}
+window.addEventListener('popstate', ()=>{
+  if(ignoreNextPop){ ignoreNextPop=false; return; }
+  document.querySelectorAll('.sheet-overlay.open').forEach(o=>closeSheet(o.id));
+  const sub=history.state && history.state.sub;
+  if(sub) switchView(sub, true);
+  else if(SUB_VIEWS[activeView]) switchView(SUB_VIEWS[activeView], true);
+});
+// Swipe right on a sub-view to go back. The view follows the finger; a long or
+// quick enough swipe completes, anything shorter springs back.
+(function(){
+  let view=null, x0=0, y0=0, t0=0, decided=false, dx=0;
+  document.addEventListener('touchstart', e=>{
+    view=null;
+    if(!SUB_VIEWS[activeView] || e.touches.length!==1 || document.querySelector('.sheet-overlay.open')) return;
+    if(e.target.closest('input,textarea,.drag-handle')) return;
+    const t=e.touches[0];
+    x0=t.clientX; y0=t.clientY; t0=Date.now(); decided=false; dx=0;
+    view=document.getElementById('view-'+activeView);
+  }, {passive:true});
+  document.addEventListener('touchmove', e=>{
+    if(!view) return;
+    const t=e.touches[0], mx=t.clientX-x0, my=t.clientY-y0;
+    if(!decided){
+      if(Math.abs(mx)<10 && Math.abs(my)<10) return;
+      decided=true;
+      if(!(mx>0 && Math.abs(mx)>Math.abs(my)*1.4)){ view=null; return; }
+      view.classList.remove('swipe-settle');
+      view.classList.add('swiping');
+    }
+    e.preventDefault();
+    dx=Math.max(0, mx);
+    view.style.transform=`translateX(${dx}px)`;
+  }, {passive:false});
+  const end=()=>{
+    if(!view || !decided){ view=null; return; }
+    const v=view; view=null;
+    const w=v.offsetWidth || window.innerWidth;
+    const go = dx > w*0.3 || (dx>50 && dx/Math.max(1,Date.now()-t0) > 0.4);
+    v.classList.remove('swiping');
+    v.classList.add('swipe-settle');
+    v.style.transform = go ? `translateX(${w}px)` : '';
+    setTimeout(()=>{
+      v.classList.remove('swipe-settle');
+      if(go) goBack();   // switchView clears the offset once the tab is showing
+      else v.style.transform='';
+    }, 220);
+  };
+  document.addEventListener('touchend', end);
+  document.addEventListener('touchcancel', end);
+})();
 function renderCurrentView(){
   if(activeView==='now') renderNow();
   else if(activeView==='timeline') renderTimeline();
@@ -2369,7 +2688,7 @@ function showToast(msg,undoFn){
 }
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
-    ['sheetTask','sheetHabit','sheetBreaker','sheetProject','sheetPlanTomorrow','sheetCapture','sheetTaskDetail','sheetHabitDetail','sheetBreakerDetail'].forEach(closeSheet);
+    ['sheetTask','sheetHabit','sheetBreaker','sheetProject','sheetPlanTomorrow','sheetCapture','sheetTaskDetail','sheetHabitDetail','sheetBreakerDetail','sheetDay'].forEach(closeSheet);
   }
   if((e.key==='Enter'||e.key===' ') && e.target.matches('[role="button"]')){
     e.preventDefault();
@@ -2378,6 +2697,7 @@ document.addEventListener('keydown', e=>{
 });
 
 // ═══ SECTION: INIT ═══
+if(history.state && history.state.sub) history.replaceState(null, '');
 switchView('now');
 </script>
 </body>
