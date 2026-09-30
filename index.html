@@ -369,13 +369,15 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
 .chip.breaker-active{ border-color:var(--breaker); color:var(--breaker); background:var(--breaker-soft); }
 
 /* Progressive-disclosure dropdowns (task create/edit) */
-.dropdown-row{ display:flex; gap:10px; margin-bottom:14px; }
+.dropdown-row{ display:flex; align-items:flex-start; gap:10px; margin-bottom:14px; }
 .dropdown-field{ position:relative; flex:1; min-width:0; }
 .dropdown-btn{ width:100%; text-align:left; padding:11px 14px; border:1px solid var(--line); border-radius:var(--r-md); color:var(--ink-dim); font-size:14px; background:var(--bg-raised); display:flex; justify-content:space-between; align-items:center; gap:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:border-color .15s; }
 .dropdown-btn:hover{ border-color:var(--ink-faint); }
 .dropdown-btn.set{ border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
 .dropdown-btn .caret{ font-size:10px; color:var(--ink-faint); flex-shrink:0; }
-.dropdown-menu{ position:absolute; top:calc(100% + 6px); left:0; right:0; background:var(--bg-hover); border:1px solid var(--line); border-radius:var(--r-md); z-index:20; box-shadow:0 12px 28px rgba(0,0,0,.5); max-height:220px; overflow-y:auto; padding:4px; }
+/* Menus open in the flow of the sheet (not floating), so the sheet grows and
+   scrolls to fit them instead of clipping them under the pinned Save bar. */
+.dropdown-menu{ margin-top:6px; background:var(--bg-hover); border:1px solid var(--line); border-radius:var(--r-md); max-height:220px; overflow-y:auto; overscroll-behavior:contain; padding:4px; scroll-margin-bottom:100px; }
 .dropdown-menu button{ display:block; width:100%; text-align:left; padding:10px 12px; font-size:14px; color:var(--ink); border-radius:var(--r-sm); }
 .dropdown-menu button:hover{ background:var(--line); }
 .more-toggle{ font-size:13.5px; font-weight:500; color:var(--ink-faint); text-align:left; padding:4px 0; margin-bottom:4px; }
@@ -1928,17 +1930,21 @@ function closeAllTaskDropdowns(){
 document.addEventListener('click', e=>{
   if(!e.target.closest('.dropdown-field')) closeAllTaskDropdowns();
 });
+function showDropdownMenu(menu, open){
+  menu.style.display = open ? '' : 'none';
+  if(open) menu.scrollIntoView({ block:'nearest' });
+}
 function toggleTaskDateMenu(){
   const menu=document.getElementById('taskDateMenu');
   const willOpen = menu.style.display==='none';
   closeAllTaskDropdowns();
-  menu.style.display = willOpen ? '' : 'none';
+  showDropdownMenu(menu, willOpen);
 }
 function toggleTaskProjectMenu(){
   const menu=document.getElementById('taskProjectMenu');
   const willOpen = menu.style.display==='none';
   closeAllTaskDropdowns();
-  menu.style.display = willOpen ? '' : 'none';
+  showDropdownMenu(menu, willOpen);
 }
 function updateTaskDateBtn(){
   const btn=document.getElementById('taskDateBtn');
@@ -2258,13 +2264,13 @@ function toggleCaptureDateMenu(){
   const menu=document.getElementById('captureDateMenu');
   const willOpen = menu.style.display==='none';
   closeAllTaskDropdowns();
-  menu.style.display = willOpen ? '' : 'none';
+  showDropdownMenu(menu, willOpen);
 }
 function toggleCaptureProjectMenu(){
   const menu=document.getElementById('captureProjectMenu');
   const willOpen = menu.style.display==='none';
   closeAllTaskDropdowns();
-  menu.style.display = willOpen ? '' : 'none';
+  showDropdownMenu(menu, willOpen);
 }
 function renderCaptureExtra(){
   const wrap=document.getElementById('captureExtra');
