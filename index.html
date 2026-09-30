@@ -189,6 +189,10 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .check-row.failed .check-dot::after{ content:'✕'; font-size:10px; color:var(--bg); font-weight:700; }
 .check-row.failed .check-title{ color:var(--breaker); }
 .check-meta{ font-size:12.5px; color:var(--ink-faint); margin-top:2px; display:flex; align-items:center; gap:6px; }
+.drag-handle{ color:var(--ink-faint); font-size:15px; letter-spacing:-3px; padding:8px 6px 8px 10px; margin:-8px -6px -8px 0; cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; }
+.check-row.dragging{ position:relative; z-index:5; background:var(--bg-hover); box-shadow:0 8px 24px rgba(0,0,0,.45); transition:none; }
+.now-resort{ margin-left:auto; font-size:12px; text-transform:none; letter-spacing:0; color:var(--accent); }
+.pd-time{ font-size:13px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
 .dot-tag{ width:7px; height:7px; border-radius:50%; display:inline-block; flex-shrink:0; }
 
 /* Detail sheets */
@@ -428,7 +432,7 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
       </div>
 
       <div class="now-section">
-        <div class="now-label">Tasks</div>
+        <div class="now-label">Tasks <button class="text-btn now-resort" id="nowTasksResort" style="display:none;" onclick="resetDayOrder(today())">Sort by time</button></div>
         <div id="nowTodayList" class="card"></div>
       </div>
 
@@ -526,6 +530,7 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
         <button class="text-btn" onclick="openEditProject(pdProjectId)">Edit</button>
       </div>
       <h1 class="view-title" id="pdTitle"></h1>
+      <div class="pd-time" id="pdTime"></div>
     </div>
     <div class="proj-stats" id="pdStats"></div>
     <div class="view-scroll" style="padding-top:14px;">
@@ -801,6 +806,9 @@ let completions = ld('focus2_completions', []);
 let breakers    = ld('focus2_breakers', []);
 let breakerResults = ld('focus2_breakerResults', []);
 let entries     = ld('focus2_entries', []);
+// Custom order for a day's task list: { 'YYYY-MM-DD': [taskId, …] }. Past days are dropped on load.
+let dayOrder    = ld('focus2_dayOrder', {});
+Object.keys(dayOrder).forEach(d=>{ if(d<toISO(new Date())) delete dayOrder[d]; });
 let activeSession = ld('focus2_activeSession', null);
 
 let activeView = 'now';
@@ -840,6 +848,7 @@ function saveAll(){
   sv('focus2_breakers', breakers);
   sv('focus2_breakerResults', breakerResults);
   sv('focus2_entries', entries);
+  sv('focus2_dayOrder', dayOrder);
 }
 
 // ═══ SECTION: DATE / TIME UTILS ═══
@@ -984,6 +993,27 @@ function entryDurationMin(e){
   if(e.end) return Math.round((new Date(e.end)-new Date(e.start))/60000);
   return null;
 }
+function taskSpentMin(taskId){
+  return entries.reduce((sum,e)=> e.type==='session' && e.taskId===taskId ? sum+(entryDurationMin(e)||0) : sum, 0);
+}
+function projectSpentMin(pid, fromIso){
+  return entries.reduce((sum,e)=> e.type==='session' && e.projectId===pid && (!fromIso || e.date>=fromIso) ? sum+(entryDurationMin(e)||0) : sum, 0);
+}
+// Default: timed tasks by time, untimed after. A saved custom order wins; tasks
+// added since it was saved slot in by time (untimed ones go to the end).
+function sortDayTasks(list, iso){
+  const byTime=(a,b)=>parseTimeLabelMinutes(a.time)-parseTimeLabelMinutes(b.time);
+  const order=dayOrder[iso];
+  let open=list.filter(t=>!t.completed), done=list.filter(t=>t.completed).sort(byTime);
+  if(!order) return [...open.sort(byTime), ...done];
+  const known=open.filter(t=>order.includes(t.id)).sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id));
+  open.filter(t=>!order.includes(t.id)).sort(byTime).forEach(t=>{
+    const m=parseTimeLabelMinutes(t.time);
+    const at = m===9999 ? -1 : known.findIndex(k=>k.time && parseTimeLabelMinutes(k.time)>m);
+    if(at<0) known.push(t); else known.splice(at,0,t);
+  });
+  return [...known, ...done];
+}
 function daySummary(iso){
   const tasksCompleted = entries.filter(e=>e.type==='task' && e.date===iso).length;
   const scheduledHabits = habits.filter(h=>isHabitScheduledOnDate(h,iso));
@@ -1001,7 +1031,7 @@ function parseTimeLabelMinutes(label){
 }
 
 // ═══ SECTION: SHARED ROWS ═══
-function makeTaskRow(tk){
+function makeTaskRow(tk, opts={}){
   const el=document.createElement('div');
   el.className='check-row'+(tk.completed?' done':'');
   el.setAttribute('role','button'); el.setAttribute('tabindex','0');
@@ -1012,7 +1042,10 @@ function makeTaskRow(tk){
   } else {
     if(tk.time) metaParts.push(tk.time);
     if(proj) metaParts.push(proj.name);
-    if(tk.estimateMin) metaParts.push('~'+fmtDurLong(tk.estimateMin));
+    const spent=taskSpentMin(tk.id);
+    if(spent && tk.estimateMin) metaParts.push(fmtDurLong(spent)+' of ~'+fmtDurLong(tk.estimateMin));
+    else if(spent) metaParts.push(fmtDurLong(spent)+' spent');
+    else if(tk.estimateMin) metaParts.push('~'+fmtDurLong(tk.estimateMin));
     if(tk.repeat) metaParts.push('↻ '+(REPEAT_SHORT[tk.repeat.freq]||'Repeats'));
   }
   el.innerHTML=`
@@ -1020,8 +1053,10 @@ function makeTaskRow(tk){
     <div class="check-body">
       <div class="check-title">${esc(tk.title)}</div>
       ${metaParts.length?`<div class="check-meta">${proj?`<span class="dot-tag" style="background:${proj.color}"></span>`:''}${esc(metaParts.join(' · '))}</div>`:''}
-    </div>`;
-  el.addEventListener('click', e=>{ if(e.target.closest('.check-dot')) return; openTaskDetailSheet(tk.id); });
+    </div>${opts.handle?'<span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>':''}`;
+  el.dataset.id=tk.id;
+  el.addEventListener('click', e=>{ if(e.target.closest('.check-dot,.drag-handle')) return; openTaskDetailSheet(tk.id); });
+  if(opts.handle) el.querySelector('.drag-handle').addEventListener('pointerdown', e=>startTaskDrag(e, el, opts.dateIso));
   return el;
 }
 function makeEntryRow(e){
@@ -1058,15 +1093,13 @@ function renderNow(){
 }
 function renderTodayTasks(){
   const t=today();
-  const todayTasks = tasks.filter(tk=>tk.scheduledDate===t);
-  todayTasks.sort((a,b)=>{
-    if(a.completed!==b.completed) return a.completed?1:-1;
-    return parseTimeLabelMinutes(a.time)-parseTimeLabelMinutes(b.time);
-  });
+  const todayTasks = sortDayTasks(tasks.filter(tk=>tk.scheduledDate===t), t);
   const list=document.getElementById('nowTodayList');
   list.innerHTML='';
+  const canReorder = todayTasks.filter(tk=>!tk.completed).length>1;
+  document.getElementById('nowTasksResort').style.display = dayOrder[t] && canReorder ? '' : 'none';
   if(!todayTasks.length) list.innerHTML = `<div class="empty-line">Nothing scheduled — maybe <span class="link" onclick="switchView('plan')">plan the day</span>.</div>`;
-  else todayTasks.forEach(tk=>list.appendChild(makeTaskRow(tk)));
+  else todayTasks.forEach(tk=>list.appendChild(makeTaskRow(tk, { handle: canReorder && !tk.completed, dateIso:t })));
 }
 function renderTodayHabits(){
   const t=today();
@@ -1372,7 +1405,7 @@ function discardFocusSummary(){
 }
 function saveFocusSummary(alsoComplete){
   const s=focusStoppedSummary; if(!s) return;
-  addEntry({ type:'session', title:s.title, subtitle:'', projectId:s.projectId||null, date:toISO(new Date(s.start)), start:s.start, end:s.end, durationMin:s.durationMin });
+  addEntry({ type:'session', title:s.title, subtitle:'', projectId:s.projectId||null, taskId:s.linkedTaskId||null, date:toISO(new Date(s.start)), start:s.start, end:s.end, durationMin:s.durationMin });
   if(alsoComplete && s.linkedTaskId) toggleTaskDone(s.linkedTaskId, null, true);
   saveAll();
   focusStoppedSummary=null;
@@ -1394,6 +1427,46 @@ function tickFocusDisplays(){
   const bar=document.getElementById('focusBarFill'); if(bar && s.goalMin) bar.style.width=Math.min(100, elapsed/(s.goalMin*600))+'%';
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden && activeSession) tickFocusDisplays(); });
+
+// ═══ SECTION: REORDER TODAY'S TASKS ═══
+// Drag by the handle. Rows move live; the new order of open tasks is saved on release.
+function startTaskDrag(e, row, dateIso){
+  e.preventDefault(); e.stopPropagation();
+  const list=row.parentElement;
+  row.classList.add('dragging');
+  const startY=e.clientY;
+  let offset=0;
+  const move=ev=>{
+    offset=ev.clientY-startY;
+    row.style.transform=`translateY(${offset}px)`;
+    const rows=[...list.querySelectorAll('.check-row[data-id]:not(.done)')].filter(r=>r!==row);
+    const mid=row.getBoundingClientRect().top+row.offsetHeight/2;
+    const before=rows.find(r=>{ const b=r.getBoundingClientRect(); return mid < b.top+b.height/2; });
+    const prevTop=row.getBoundingClientRect().top;
+    if(before && before!==row.nextElementSibling) list.insertBefore(row, before);
+    else if(!before){ const last=rows[rows.length-1]; if(last && last.nextElementSibling!==row) last.after(row); }
+    // Keep the row under the finger after the DOM move.
+    const shift=row.getBoundingClientRect().top-prevTop;
+    if(shift){ offset-=shift; row.style.transform=`translateY(${offset}px)`; }
+  };
+  const end=()=>{
+    window.removeEventListener('pointermove',move);
+    window.removeEventListener('pointerup',end);
+    window.removeEventListener('pointercancel',end);
+    row.classList.remove('dragging'); row.style.transform='';
+    dayOrder[dateIso]=[...list.querySelectorAll('.check-row[data-id]:not(.done)')].map(r=>r.dataset.id);
+    saveAll(); renderCurrentView();
+  };
+  // Listen on window: moving the row in the DOM would drop pointer capture on the handle.
+  window.addEventListener('pointermove',move);
+  window.addEventListener('pointerup',end);
+  window.addEventListener('pointercancel',end);
+}
+function resetDayOrder(iso){
+  const prev=dayOrder[iso];
+  delete dayOrder[iso]; saveAll(); renderCurrentView();
+  showToast('Sorted by time', ()=>{ dayOrder[iso]=prev; saveAll(); renderCurrentView(); });
+}
 
 // ═══ SECTION: TIMELINE VIEW ═══
 function makeDayBlock(dateIso, dayEntries){
@@ -1455,7 +1528,7 @@ function fillPlanList(id,list,emptyMsg){
 function renderPlan(){
   const t=today(), tm=addDays(t,1), weekEnd=addDays(t,7);
   const open = tasks.filter(tk=>!tk.completed && tk.scheduledDate);
-  fillPlanList('planTodayList', open.filter(tk=>tk.scheduledDate===t), 'Nothing scheduled today.');
+  fillPlanList('planTodayList', sortDayTasks(open.filter(tk=>tk.scheduledDate===t), t), 'Nothing scheduled today.');
   fillPlanList('planTomorrowList', open.filter(tk=>tk.scheduledDate===tm), 'Nothing planned yet.');
   fillPlanList('planWeekList', open.filter(tk=>tk.scheduledDate>tm && tk.scheduledDate<=weekEnd), 'Nothing further out this week.');
   fillPlanList('planLaterList', open.filter(tk=>tk.scheduledDate>weekEnd), 'Nothing on the horizon.');
@@ -1600,6 +1673,9 @@ function openProjectDetail(pid){
 function renderProjectDetail(){
   const p = projects.find(x=>x.id===pdProjectId); if(!p) return;
   document.getElementById('pdTitle').textContent = p.name + (p.archived?' (archived)':'');
+  const total=projectSpentMin(p.id), week=projectSpentMin(p.id, reviewRange('week',0).start);
+  const timeEl=document.getElementById('pdTime');
+  timeEl.textContent = total ? fmtDurLong(week)+' this week · '+fmtDurLong(total)+' total' : 'No time logged yet';
   const c = projectTaskCounts(p.id);
   const stats = document.getElementById('pdStats'); stats.innerHTML='';
   [['backlog','Backlog',c.backlog],['soon','Soon',c.soon],['scheduled','Scheduled',c.scheduled],['completed','Completed',c.completed]].forEach(([key,label,count])=>{
@@ -1626,6 +1702,8 @@ function openTaskDetailSheet(taskId){
   document.getElementById('taskDetailTitle').textContent = tk.title;
   const rows=[];
   if(proj) rows.push(['Project', proj.name]);
+  const spent=taskSpentMin(tk.id);
+  if(spent) rows.push(['Time spent', fmtDurLong(spent)+(tk.estimateMin?' of ~'+fmtDurLong(tk.estimateMin):'')]);
   if(tk.completed){
     const d=new Date(tk.completedAt);
     rows.push(['Completed', d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})]);
