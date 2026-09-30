@@ -327,12 +327,13 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .sheet.dragging{ transition:none; }
 body.sheet-locked{ position:fixed; left:0; right:0; overflow:hidden; }
 /* Swipe back: the sub-view follows the finger */
-.view.swiping{ transition:none; will-change:transform; box-shadow:-12px 0 30px rgba(0,0,0,.5); background:var(--bg); }
+.view.swiping{ transition:none; will-change:transform; box-shadow:-28px 0 56px rgba(0,0,0,.45); background:var(--bg); }
 .view.swipe-settle{ transition:transform .22s cubic-bezier(.32,.72,0,1); }
 .view.swiping, .view.swipe-settle{ position:relative; z-index:1; }
 /* The page being swiped back to sits underneath, sliding in from a little to the left */
-.view.under{ display:flex; position:fixed; top:0; bottom:0; left:0; right:0; margin:0 auto; max-width:440px; overflow:hidden; z-index:0; background:var(--bg); pointer-events:none; will-change:transform; }
+.view.under{ display:flex; position:fixed; top:0; bottom:0; left:0; right:0; margin:0 auto; max-width:440px; overflow:hidden; z-index:0; background:var(--bg); pointer-events:none; will-change:transform, filter; filter:blur(var(--blur, 6px)); }
 .view.under::after{ content:''; position:absolute; inset:0; background:#000; opacity:var(--dim, .35); pointer-events:none; }
+.view.under.swipe-settle{ transition:transform .22s cubic-bezier(.32,.72,0,1), filter .22s cubic-bezier(.32,.72,0,1); }
 .view.under.swipe-settle::after{ transition:opacity .22s cubic-bezier(.32,.72,0,1); }
 .sheet{
   background:var(--bg-sheet); border:1px solid var(--line-soft); border-bottom:none;
@@ -2657,7 +2658,7 @@ function switchView(v, fromHistory){
     }
   }
   activeView=v;
-  VIEWS.forEach(x=>{ const el=document.getElementById('view-'+x); if(!el) return; el.classList.toggle('active', x===v); el.classList.remove('under','swipe-settle'); el.style.transform=''; el.style.removeProperty('--dim'); });
+  VIEWS.forEach(x=>{ const el=document.getElementById('view-'+x); if(!el) return; el.classList.toggle('active', x===v); el.classList.remove('under','swipe-settle'); el.style.transform=''; el.style.removeProperty('--dim'); el.style.removeProperty('--blur'); });
   NAV_VIEWS.forEach(x=>document.getElementById('navi-'+x)?.classList.toggle('active', x===v || (v==='review' && x==='timeline')));
   renderCurrentView();
 }
@@ -2677,8 +2678,8 @@ window.addEventListener('popstate', ()=>{
 // quick enough swipe completes, anything shorter springs back.
 (function(){
   let view=null, under=null, x0=0, y0=0, t0=0, decided=false, dx=0;
-  // Parent page moves from 30% left (dimmed) to its place as the swipe goes 0 -> 1
-  const place=(u,p)=>{ u.style.transform=`translateX(${-30*(1-p)}%)`; u.style.setProperty('--dim', (.35*(1-p)).toFixed(3)); };
+  // Parent page moves from 30% left (dimmed and blurred) to its place as the swipe goes 0 -> 1
+  const place=(u,p)=>{ u.style.transform=`translateX(${-30*(1-p)}%)`; u.style.setProperty('--dim', (.35*(1-p)).toFixed(3)); u.style.setProperty('--blur', (6*(1-p)).toFixed(2)+'px'); };
   document.addEventListener('touchstart', e=>{
     view=null;
     if(!SUB_VIEWS[activeView] || e.touches.length!==1 || document.querySelector('.sheet-overlay.open')) return;
@@ -2719,7 +2720,7 @@ window.addEventListener('popstate', ()=>{
     setTimeout(()=>{
       v.classList.remove('swipe-settle');
       if(go){ goBack(); window.scrollTo(0,0); }   // switchView clears the offsets once the tab is showing
-      else { v.style.transform=''; u.classList.remove('under','swipe-settle'); u.style.transform=''; u.style.removeProperty('--dim'); }
+      else { v.style.transform=''; u.classList.remove('under','swipe-settle'); u.style.transform=''; u.style.removeProperty('--dim'); u.style.removeProperty('--blur'); }
     }, 220);
   };
   document.addEventListener('touchend', end);
