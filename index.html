@@ -1614,9 +1614,14 @@ function renderDayEditor(){
       <div class="check-body"><div class="check-title">${esc(b.name)}</div><div class="check-meta">${state==='success'?'Clean':state==='failure'?'Slipped':'Not logged'} · tap to change</div></div>
     </div>`;
   });
-  const sessionRows=entries.filter(e=>e.type==='session' && e.date===iso).sort((a,b)=>new Date(a.start)-new Date(b.start)).map(e=>{
+  // Everything else logged that day: focus sessions, "Did it" entries, notes, and
+  // entries whose task/habit/breaker no longer exists, so any of them can be removed.
+  const listedAbove=e=>(e.type==='task' && tasks.some(t=>t.id===e.sourceId))
+    || (e.type==='habit' && habits.some(h=>h.id===e.sourceId))
+    || (e.type==='breaker' && breakers.some(b=>b.id===e.sourceId));
+  const sessionRows=entries.filter(e=>e.date===iso && !listedAbove(e)).sort((a,b)=>new Date(a.start)-new Date(b.start)).map(e=>{
     const dur=entryDurationMin(e);
-    return `<div class="already-planned-row" style="padding:10px 14px;"><span>${esc(e.title)}<span class="entry-duration" style="margin-left:8px;">${dur!=null?fmtDurLong(dur):''}</span></span><button type="button" class="remove-btn" onclick="dayRemoveEntry('${e.id}')">Remove</button></div>`;
+    return `<div class="already-planned-row" style="padding:10px 14px;"><span>${esc(e.title)}<span class="entry-duration" style="margin-left:8px;">${dur!=null?fmtDurLong(dur):''}</span>${e.subtitle?`<div class="entry-sub">${esc(e.subtitle)}</div>`:''}</span><button type="button" class="remove-btn" onclick="dayRemoveEntry('${e.id}')">Remove</button></div>`;
   });
 
   document.getElementById('dayEditBody').innerHTML = `
@@ -1628,7 +1633,7 @@ function renderDayEditor(){
     </div>
     ${habits.length?`<div class="field-label">Habits</div>${card(habitRows,'No habits scheduled this day.')}`:''}
     ${breakers.length?`<div class="field-label">Breakers</div>${card(breakerRows,'')}`:''}
-    ${sessionRows.length?`<div class="field-label">Logged time</div>${card(sessionRows,'')}`:''}`;
+    ${sessionRows.length?`<div class="field-label">Logged</div>${card(sessionRows,'')}`:''}`;
 }
 function refreshDay(){ saveAll(); renderDayEditor(); renderCurrentView(); }
 function dayToggleTask(id){
