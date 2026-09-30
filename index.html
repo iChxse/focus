@@ -24,18 +24,13 @@
   --ink-dim:   #B3B7C6;
   --ink-faint: #858A9C;
 
-  /* Each kind of thing gets its own color: focus, tasks, habits, breakers */
+  /* One accent (focus + main actions). Tasks, habits and breakers stay neutral;
+     color comes only from the projects you create. */
   --accent:      #FF8A3D;
-  --accent-2:    #FF5F7E;
   --accent-ink:  #1E0E03;
   --accent-soft: rgba(255,138,61,0.15);
-  --task:        #5B9DFF;
-  --task-soft:   rgba(91,157,255,0.15);
-  --habit:       #34D399;
-  --habit-soft:  rgba(52,211,153,0.15);
-  --habit-mark:  var(--habit);
-  --brk:         #A78BFA;
-  --brk-soft:    rgba(167,139,250,0.15);
+  --kind-mark:   var(--ink-dim);
+  --habit-mark:  var(--ink-dim);
   --breaker:      #FF5C5C;
   --breaker-soft: rgba(255,92,92,0.14);
 
@@ -104,15 +99,7 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
   font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase;
   color:var(--ink-dim); margin:0 2px 7px;
 }
-/* A colored pip before each section label says what kind of thing lives there */
-.sec-label::before{ content:''; width:8px; height:8px; border-radius:3px; background:var(--sec,var(--ink-faint)); margin-right:8px; flex-shrink:0; }
-.sec-label{ justify-content:flex-start; }
-.sec-label > .lib-add, .sec-label > .plan-action{ margin-left:auto; }
-.sec-tasks{ --sec:var(--task); }
-.sec-habits{ --sec:var(--habit); }
-.sec-breakers{ --sec:var(--brk); }
-.sec-focus{ --sec:var(--accent); }
-.sec-projects{ --sec:var(--accent-2); }
+
 
 /* ─────────────────────────────────────────
    NAV
@@ -136,7 +123,7 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .nav-capture{ flex:0.9; display:flex; align-items:center; justify-content:center; height:48px; }
 .nav-capture-btn{
   width:48px; height:48px; border-radius:50%;
-  background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff;
+  background:var(--accent); color:var(--accent-ink);
   font-size:24px; font-weight:400; line-height:1; display:flex; align-items:center; justify-content:center;
   box-shadow:0 6px 18px rgba(255,138,61,0.28), 0 1px 0 rgba(255,255,255,0.18) inset;
   transition:transform .15s, box-shadow .15s;
@@ -157,14 +144,14 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 }
 .now-head .text-btn:hover{ border-color:var(--accent); color:var(--accent); }
 
-.focus-card{ margin-top:14px; padding:16px; border:1px solid rgba(255,138,61,0.22); border-radius:var(--r-lg); background:linear-gradient(135deg, rgba(255,138,61,0.14), rgba(255,95,126,0.08) 60%, var(--bg-raised)); }
+.focus-card{ margin-top:14px; padding:16px; border:1px solid var(--line-soft); border-radius:var(--r-lg); background:var(--bg-raised); }
 .focus-card.reached{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
 .focus-card-top{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
 .focus-status{ font-family:var(--font-mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-faint); }
 .focus-status.done{ color:var(--accent); }
 .focus-card-title{ font-size:16px; font-weight:600; margin-bottom:6px; overflow-wrap:anywhere; }
 .focus-bar{ height:5px; border-radius:2px; background:var(--line); margin:10px 0 2px; overflow:hidden; }
-.focus-bar-fill{ height:100%; width:0; background:linear-gradient(90deg,var(--accent),var(--accent-2)); transition:width 1s linear; }
+.focus-bar-fill{ height:100%; width:0; background:var(--accent); transition:width 1s linear; }
 .focus-card-actions{ display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
 .focus-card-actions > button{ min-width:100px; }
 .focus-indicator-dot{ width:7px; height:7px; border-radius:50%; background:var(--accent); animation:pulse 1.6s ease-in-out infinite; flex-shrink:0; }
@@ -190,11 +177,9 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .check-row{ display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .15s; }
 .check-row:hover{ background:var(--bg-hover); }
 .check-row:last-child{ border-bottom:none; }
-.check-row{ --kind:var(--task); }
+.check-row{ --kind:var(--ink); }
 .check-dot{ width:22px; height:22px; border-radius:50%; border:2px solid var(--kind); flex-shrink:0; margin-top:0; display:flex; align-items:center; justify-content:center; background:transparent; transition:all .15s; padding:0; }
 .check-dot:hover{ background:color-mix(in srgb, var(--kind) 18%, transparent); }
-.habit-row{ --kind:var(--habit); }
-.breaker-row{ --kind:var(--brk); }
 .check-row.done .check-dot{ background:var(--kind); border-color:var(--kind); }
 .check-row.done .check-dot::after{ content:'✓'; font-size:12px; color:var(--bg); font-weight:800; }
 .check-body{ flex:1; min-width:0; }
@@ -221,8 +206,8 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .entry-main{ flex:1; min-width:0; border-left:3px solid var(--ink-faint); padding-left:11px; border-radius:2px; }
 .entry-main.type-session{ border-left-color:var(--accent); }
 .entry-main.type-habit{ border-left-color:var(--habit-mark); }
-.entry-main.type-breaker{ border-left-color:var(--brk); }
-.entry-main.type-task{ border-left-color:var(--task); }
+.entry-main.type-breaker{ border-left-color:var(--kind-mark); }
+.entry-main.type-task{ border-left-color:var(--kind-mark); }
 .entry-main.type-note{ border-left-color:var(--line); }
 .entry-title-row{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
 .entry-title{ font-size:15px; }
@@ -293,7 +278,7 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .proj-stat{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 2px; border-radius:var(--r-sm); color:var(--ink-faint); transition:all .15s; }
 .proj-stat:hover{ color:var(--ink-dim); }
 .proj-stat.active{ color:var(--ink); background:var(--bg-hover); box-shadow:0 1px 0 rgba(255,255,255,0.04) inset; }
-.proj-stat.active .proj-stat-num{ color:var(--task); }
+.proj-stat.active .proj-stat-num{ color:var(--ink); }
 .proj-stat-num{ font-family:var(--font-mono); font-size:18px; font-weight:500; font-variant-numeric:tabular-nums; }
 .proj-stat-label{ font-size:11.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
 
@@ -316,7 +301,7 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .review-chart{ padding:14px 16px 12px; }
 .review-bars{ display:flex; align-items:flex-end; gap:2px; height:96px; border-bottom:1px solid var(--line); }
 .review-bar{ flex:1; height:100%; display:flex; align-items:flex-end; cursor:pointer; min-width:0; }
-.review-bar-fill{ width:100%; background:linear-gradient(180deg,var(--accent),var(--accent-2)); border-radius:4px 4px 0 0; min-height:0; }
+.review-bar-fill{ width:100%; background:var(--accent); border-radius:4px 4px 0 0; min-height:0; }
 .review-bar.sel .review-bar-fill{ background:var(--ink); }
 .review-bar.future .review-bar-fill{ background:transparent; }
 .review-axis{ display:flex; gap:2px; margin-top:6px; }
@@ -394,7 +379,7 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
 .sheet-actions > button{ min-width:110px; }
 .btn-cancel{ flex:1; padding:14px; border-radius:var(--r-md); background:var(--bg-hover); color:var(--ink-dim); font-size:15px; font-weight:600; transition:color .15s; }
 .btn-cancel:hover{ color:var(--ink); }
-.btn-save{ flex:2; padding:14px; border-radius:var(--r-md); background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff; font-size:15px; font-weight:600; transition:filter .15s; }
+.btn-save{ flex:2; padding:14px; border-radius:var(--r-md); background:var(--accent); color:var(--accent-ink); font-size:15px; font-weight:600; transition:filter .15s; }
 .btn-save:hover{ filter:brightness(1.08); }
 .btn-danger{ padding:14px; border:1px solid rgba(255,92,92,0.4); border-radius:var(--r-md); color:var(--breaker); font-size:15px; font-weight:600; margin:0 var(--gutter) 12px; width:calc(100% - 2 * var(--gutter)); transition:background .15s; }
 .btn-danger:hover{ background:var(--breaker-soft); }
@@ -443,22 +428,22 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
       </div>
 
       <div class="now-section">
-        <div class="now-label sec-label sec-tasks">Tasks</div>
+        <div class="now-label">Tasks</div>
         <div id="nowTodayList" class="card"></div>
       </div>
 
       <div class="now-section">
-        <div class="now-label sec-label sec-habits">Habits</div>
+        <div class="now-label">Habits</div>
         <div id="nowHabitsList" class="card"></div>
       </div>
 
       <div class="now-section">
-        <div class="now-label sec-label sec-breakers">Breakers</div>
+        <div class="now-label">Breakers</div>
         <div id="nowBreakersList" class="card"></div>
       </div>
 
       <div class="now-section">
-        <div class="now-label sec-label sec-focus">Today's log</div>
+        <div class="now-label">Today's log</div>
         <div id="nowTimelineList" class="card mini-timeline"></div>
       </div>
     </div>
@@ -488,19 +473,19 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
     <div class="view-head"><h1 class="view-title">Plan</h1></div>
     <div class="view-scroll">
       <div class="plan-section">
-        <div class="plan-label sec-label sec-tasks">Today</div>
+        <div class="plan-label">Today</div>
         <div id="planTodayList" class="card"></div>
       </div>
       <div class="plan-section">
-        <div class="plan-label sec-label sec-tasks">Tomorrow <button class="plan-action" onclick="openPlanTomorrow()">Plan tomorrow →</button></div>
+        <div class="plan-label">Tomorrow <button class="plan-action" onclick="openPlanTomorrow()">Plan tomorrow →</button></div>
         <div id="planTomorrowList" class="card"></div>
       </div>
       <div class="plan-section">
-        <div class="plan-label sec-label sec-tasks">This week</div>
+        <div class="plan-label">This week</div>
         <div id="planWeekList" class="card"></div>
       </div>
       <div class="plan-section">
-        <div class="plan-label sec-label sec-tasks">Later</div>
+        <div class="plan-label">Later</div>
         <div id="planLaterList" class="card"></div>
       </div>
     </div>
@@ -513,19 +498,19 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
     <div class="view-head"><h1 class="view-title">Library</h1></div>
     <div class="view-scroll">
       <div class="lib-group">
-        <div class="lib-label sec-label sec-projects">Projects <span class="lib-add" onclick="openNewProject()">+ New</span></div>
+        <div class="lib-label">Projects <span class="lib-add" onclick="openNewProject()">+ New</span></div>
         <div id="libProjectsList" class="card"></div>
       </div>
       <div class="lib-group">
-        <div class="lib-label sec-label sec-habits">Habits <span class="lib-add" onclick="openNewHabit()">+ New</span></div>
+        <div class="lib-label">Habits <span class="lib-add" onclick="openNewHabit()">+ New</span></div>
         <div id="libHabitsList" class="card"></div>
       </div>
       <div class="lib-group">
-        <div class="lib-label sec-label sec-breakers">Breakers <span class="lib-add" onclick="openNewBreaker()">+ New</span></div>
+        <div class="lib-label">Breakers <span class="lib-add" onclick="openNewBreaker()">+ New</span></div>
         <div id="libBreakersList" class="card"></div>
       </div>
       <div class="lib-group">
-        <div class="lib-label sec-label sec-tasks">Unscheduled tasks</div>
+        <div class="lib-label">Unscheduled tasks</div>
         <div id="libUnscheduledList" class="card"></div>
       </div>
     </div>
@@ -1577,7 +1562,7 @@ function makeBreakerLibRow(b){
   const el=document.createElement('div');
   el.className='lib-row'; el.setAttribute('role','button'); el.setAttribute('tabindex','0');
   el.innerHTML=`
-    <div class="lib-row-main"><span class="dot-tag" style="background:var(--brk)"></span><span class="lib-row-title">${esc(b.name)}</span></div>
+    <div class="lib-row-main"><span class="dot-tag" style="background:var(--ink-faint)"></span><span class="lib-row-title">${esc(b.name)}</span></div>
     <div class="lib-row-meta">${calcBreakerStreak(b)} day streak</div>`;
   el.onclick=()=>openBreakerDetailSheet(b.id);
   return el;
@@ -2212,7 +2197,7 @@ function renderReview(){
   if(reviewOffset===0){ const cut=addDays(prev.start, daysBetween(start,today()).length-1); if(cut<prevEnd) prevEnd=cut; }
   const s = reviewStats(start,end), p = reviewStats(prev.start, prevEnd);
   const body=document.getElementById('reviewBody'); body.innerHTML='';
-  const section=(label,html)=>{ const w=document.createElement('div'); w.className='review-section'; w.innerHTML=`<div class="plan-label sec-label sec-tasks">${label}</div><div class="card">${html}</div>`; body.appendChild(w); return w; };
+  const section=(label,html)=>{ const w=document.createElement('div'); w.className='review-section'; w.innerHTML=`<div class="plan-label">${label}</div><div class="card">${html}</div>`; body.appendChild(w); return w; };
 
   // Totals
   const focusDiff = s.focusMin-p.focusMin;
