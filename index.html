@@ -115,7 +115,6 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
   font-size:10.5px; font-weight:500; letter-spacing:0.01em;
   color:var(--ink-faint); cursor:pointer; border-radius:var(--r-md); transition:color .15s;
 }
-.nav-item:hover{ color:var(--ink-dim); }
 .nav-item.active{ color:var(--ink); font-weight:600; }
 .nav-icon{ width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; transition:stroke .15s; }
 .nav-item.active .nav-icon{ stroke:var(--accent); }
@@ -128,7 +127,6 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
   box-shadow:0 6px 18px rgba(255,138,61,0.28), 0 1px 0 rgba(255,255,255,0.18) inset;
   transition:transform .15s, box-shadow .15s;
 }
-.nav-capture-btn:hover{ transform:translateY(-1px); box-shadow:0 8px 22px rgba(255,138,61,0.36), 0 1px 0 rgba(255,255,255,0.18) inset; }
 .nav-capture-btn:active{ transform:scale(.96); }
 
 /* ─────────────────────────────────────────
@@ -142,7 +140,6 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
   margin-top:2px; padding:7px 14px; border-radius:999px;
   border:1px solid var(--line); color:var(--ink-dim);
 }
-.now-head .text-btn:hover{ border-color:var(--accent); color:var(--accent); }
 
 .focus-card{ margin-top:14px; padding:16px; border:1px solid var(--line-soft); border-radius:var(--r-lg); background:var(--bg-raised); }
 .focus-card.reached{ border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
@@ -160,7 +157,6 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 
 .now-section{ padding:18px 0 0; }
 .now-label-toggle{ width:100%; background:none; border:none; cursor:pointer; padding:0; text-align:left; transition:color .15s; }
-.now-label-toggle:hover{ color:var(--ink); }
 .toggle-caret{ font-size:10px; transition:transform .2s; display:inline-block; }
 .toggle-caret.open{ transform:rotate(90deg); }
 .now-label-count{ color:var(--ink-faint); font-weight:400; margin-left:auto; }
@@ -175,11 +171,9 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 
 /* Check rows (tasks / habits) */
 .check-row{ display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .15s; }
-.check-row:hover{ background:var(--bg-hover); }
 .check-row:last-child{ border-bottom:none; }
 .check-row{ --kind:var(--ink); }
 .check-dot{ width:22px; height:22px; border-radius:50%; border:2px solid var(--kind); flex-shrink:0; margin-top:0; display:flex; align-items:center; justify-content:center; background:transparent; transition:all .15s; padding:0; }
-.check-dot:hover{ background:color-mix(in srgb, var(--kind) 18%, transparent); }
 .check-row.done .check-dot{ background:var(--kind); border-color:var(--kind); }
 .check-row.done .check-dot::after{ content:'✓'; font-size:12px; color:var(--bg); font-weight:800; }
 .check-body{ flex:1; min-width:0; }
@@ -200,7 +194,6 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .detail-row-label{ color:var(--ink-faint); flex-shrink:0; }
 .detail-row-value{ color:var(--ink); text-align:right; }
 .btn-outline-breaker{ flex:1; padding:14px; border:1px solid var(--breaker); border-radius:var(--r-md); color:var(--breaker); font-size:15px; font-weight:600; }
-.btn-outline-breaker:hover{ background:var(--breaker-soft); }
 
 /* Entry rows (timeline) */
 .entry-row{ display:flex; gap:12px; padding:9px 14px; border-bottom:1px solid var(--line-soft); transition:background 1.4s ease; }
@@ -238,7 +231,6 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .day-date{ font-size:13px; color:var(--ink-faint); }
 .day-summary{ font-size:12.5px; color:var(--ink-faint); padding:10px 4px 2px; }
 .day-edit{ margin-left:auto; font-size:13px; font-weight:600; color:var(--accent); padding:4px 2px; }
-.day-edit:hover{ color:var(--ink); }
 .entry-row{ cursor:pointer; }
 .day-editor .card{ margin-bottom:16px; }
 .day-editor .field-label{ margin-bottom:7px; }
@@ -253,7 +245,6 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
   font-size:13px; font-weight:600; color:var(--accent);
   background:var(--accent-soft); border-radius:999px; padding:6px 12px; transition:background .15s;
 }
-.plan-action:hover{ background:rgba(255,138,61,0.24); }
 
 .picker-group-label{ font-size:12.5px; font-weight:600; color:var(--ink-faint); margin:16px 0 6px; }
 .picker-group-label:first-child{ margin-top:0; }
@@ -265,9 +256,7 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 ───────────────────────────────────────── */
 .lib-group{ padding-top:18px; }
 .lib-add{ font-size:13px; font-weight:600; color:var(--accent); cursor:pointer; }
-.lib-add:hover{ color:var(--ink); }
 .lib-row{ padding:11px 14px; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .15s; }
-.lib-row:hover{ background:var(--bg-hover); }
 .lib-row:last-child{ border-bottom:none; }
 .lib-row-main{ display:flex; align-items:center; gap:10px; }
 .lib-row-title{ font-size:15px; font-weight:600; }
@@ -278,7 +267,6 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 /* Project / breaker / habit detail */
 .detail-head{ padding:28px var(--gutter) 0; display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
 .text-btn{ font-size:14px; font-weight:500; color:var(--ink-dim); transition:color .15s; }
-.text-btn:hover{ color:var(--ink); }
 .detail-head .text-btn{ color:var(--accent); margin-left:-2px; }
 .detail-head .view-title{ margin:0; }
 
@@ -287,7 +275,6 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
   background:var(--bg-raised); border:1px solid var(--line-soft); border-radius:var(--r-md);
 }
 .proj-stat{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 2px; border-radius:var(--r-sm); color:var(--ink-faint); transition:all .15s; }
-.proj-stat:hover{ color:var(--ink-dim); }
 .proj-stat.active{ color:var(--ink); background:var(--bg-hover); box-shadow:0 1px 0 rgba(255,255,255,0.04) inset; }
 .proj-stat.active .proj-stat-num{ color:var(--ink); }
 .proj-stat-num{ font-family:var(--font-mono); font-size:18px; font-weight:500; font-variant-numeric:tabular-nums; }
@@ -364,7 +351,6 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
 .field-label{ font-size:12.5px; font-weight:600; color:var(--ink-dim); margin-bottom:8px; display:block; }
 .chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
 .chip{ font-size:13.5px; font-weight:500; padding:8px 14px; border:1px solid var(--line); border-radius:999px; color:var(--ink-dim); transition:all .15s; }
-.chip:hover{ border-color:var(--ink-faint); color:var(--ink); }
 .chip.active{ border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
 .chip.breaker-active{ border-color:var(--breaker); color:var(--breaker); background:var(--breaker-soft); }
 
@@ -372,45 +358,34 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
 .dropdown-row{ display:flex; align-items:flex-start; gap:10px; margin-bottom:14px; }
 .dropdown-field{ position:relative; flex:1; min-width:0; }
 .dropdown-btn{ width:100%; text-align:left; padding:11px 14px; border:1px solid var(--line); border-radius:var(--r-md); color:var(--ink-dim); font-size:14px; background:var(--bg-raised); display:flex; justify-content:space-between; align-items:center; gap:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:border-color .15s; }
-.dropdown-btn:hover{ border-color:var(--ink-faint); }
 .dropdown-btn.set{ border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
 .dropdown-btn .caret{ font-size:10px; color:var(--ink-faint); flex-shrink:0; }
 /* Menus open in the flow of the sheet (not floating), so the sheet grows and
    scrolls to fit them instead of clipping them under the pinned Save bar. */
 .dropdown-menu{ margin-top:6px; background:var(--bg-hover); border:1px solid var(--line); border-radius:var(--r-md); max-height:220px; overflow-y:auto; overscroll-behavior:contain; padding:4px; scroll-margin-bottom:100px; }
 .dropdown-menu button{ display:block; width:100%; text-align:left; padding:10px 12px; font-size:14px; color:var(--ink); border-radius:var(--r-sm); }
-.dropdown-menu button:hover{ background:var(--line); }
 .more-toggle{ font-size:13.5px; font-weight:500; color:var(--ink-faint); text-align:left; padding:4px 0; margin-bottom:4px; }
-.more-toggle:hover{ color:var(--accent); }
 
 /* Plan-a-day sheet */
 .already-planned-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 0; border-bottom:1px solid var(--line-soft); font-size:15px; }
 .already-planned-row:last-child{ border-bottom:none; }
 .remove-btn{ font-size:13px; font-weight:500; color:var(--ink-faint); flex-shrink:0; }
-.remove-btn:hover{ color:var(--breaker); }
 .quick-add-row{ display:flex; gap:8px; align-items:stretch; }
 .quick-add-row .field-input{ flex:1; margin-bottom:0; }
 .quick-add-btn{ width:46px; border-radius:var(--r-md); background:var(--accent); color:var(--accent-ink); font-size:22px; line-height:1; flex-shrink:0; }
-.quick-add-btn:hover{ filter:brightness(1.08); }
 
 .emoji-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
 .emoji-opt{ font-size:20px; width:44px; height:44px; display:flex; align-items:center; justify-content:center; border:1px solid var(--line); border-radius:var(--r-md); cursor:pointer; transition:all .15s; }
-.emoji-opt:hover{ border-color:var(--ink-faint); }
 .emoji-opt.selected{ border-color:var(--accent); background:var(--accent-soft); }
 /* Pinned to the bottom of the sheet so Done/Save stays reachable however long the body gets */
 .sheet-actions{ display:flex; flex-wrap:wrap; gap:10px; padding:12px var(--gutter) calc(22px + var(--safe-b)); position:sticky; bottom:0; background:var(--bg-sheet); }
 .sheet-actions > button{ min-width:110px; }
 .btn-cancel{ flex:1; padding:14px; border-radius:var(--r-md); background:var(--bg-hover); color:var(--ink-dim); font-size:15px; font-weight:600; transition:color .15s; }
-.btn-cancel:hover{ color:var(--ink); }
 .btn-save{ flex:2; padding:14px; border-radius:var(--r-md); background:var(--accent); color:var(--accent-ink); font-size:15px; font-weight:600; transition:filter .15s; }
-.btn-save:hover{ filter:brightness(1.08); }
 .btn-danger{ padding:14px; border:1px solid rgba(255,92,92,0.4); border-radius:var(--r-md); color:var(--breaker); font-size:15px; font-weight:600; margin:0 var(--gutter) 12px; width:calc(100% - 2 * var(--gutter)); transition:background .15s; }
-.btn-danger:hover{ background:var(--breaker-soft); }
 .btn-quiet{ padding:14px; border:1px solid var(--line); border-radius:var(--r-md); color:var(--ink-dim); font-size:15px; font-weight:600; margin:0 var(--gutter) 12px; width:calc(100% - 2 * var(--gutter)); transition:border-color .15s,color .15s; }
-.btn-quiet:hover{ border-color:var(--accent); color:var(--ink); }
 .detail-head-row{ display:flex; justify-content:space-between; align-items:center; width:100%; }
 .lib-archived-toggle{ font-size:13px; color:var(--ink-faint); padding:12px 16px; cursor:pointer; }
-.lib-archived-toggle:hover{ color:var(--ink); }
 .lib-row.archived{ opacity:.6; }
 .slip-extra-row{ display:flex; gap:12px; }
 .slip-extra-row .field-input{ flex:1; }
@@ -419,7 +394,6 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
 /* Capture */
 .capture-types{ display:flex; gap:4px; margin-bottom:16px; padding:4px; background:var(--bg-raised); border:1px solid var(--line-soft); border-radius:var(--r-md); }
 .capture-type{ flex:1; font-size:13.5px; font-weight:600; padding:9px 4px; border-radius:var(--r-sm); color:var(--ink-faint); text-align:center; transition:all .15s; }
-.capture-type:hover{ color:var(--ink-dim); }
 .capture-type.active{ color:var(--accent); background:var(--accent-soft); }
 
 /* ─────────────────────────────────────────
@@ -428,6 +402,37 @@ textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
 .toast{ position:fixed; bottom:calc(var(--nav-h) + 16px + var(--safe-b)); left:50%; transform:translateX(-50%) translateY(16px); display:flex; align-items:center; gap:16px; background:var(--bg-hover); border:1px solid var(--line); border-radius:999px; box-shadow:0 10px 30px rgba(0,0,0,.45); color:var(--ink); font-size:14px; padding:11px 20px; z-index:300; white-space:nowrap; opacity:0; transition:opacity .2s, transform .2s; pointer-events:none; max-width:88vw; }
 .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
 .toast-undo{ font-size:14px; font-weight:600; color:var(--accent); flex-shrink:0; }
+
+/* Hover styles only for a real mouse. On a phone, :hover sticks to whatever
+   row a scroll started on, leaving it highlighted as if tapped. */
+@media (hover:hover) and (pointer:fine){
+  .nav-item:hover{ color:var(--ink-dim); }
+  .nav-capture-btn:hover{ transform:translateY(-1px); box-shadow:0 8px 22px rgba(255,138,61,0.36), 0 1px 0 rgba(255,255,255,0.18) inset; }
+  .now-head .text-btn:hover{ border-color:var(--accent); color:var(--accent); }
+  .now-label-toggle:hover{ color:var(--ink); }
+  .check-row:hover{ background:var(--bg-hover); }
+  .check-dot:hover{ background:color-mix(in srgb, var(--kind) 18%, transparent); }
+  .btn-outline-breaker:hover{ background:var(--breaker-soft); }
+  .day-edit:hover{ color:var(--ink); }
+  .plan-action:hover{ background:rgba(255,138,61,0.24); }
+  .lib-add:hover{ color:var(--ink); }
+  .lib-row:hover{ background:var(--bg-hover); }
+  .text-btn:hover{ color:var(--ink); }
+  .proj-stat:hover{ color:var(--ink-dim); }
+  .chip:hover{ border-color:var(--ink-faint); color:var(--ink); }
+  .dropdown-btn:hover{ border-color:var(--ink-faint); }
+  .dropdown-menu button:hover{ background:var(--line); }
+  .more-toggle:hover{ color:var(--accent); }
+  .remove-btn:hover{ color:var(--breaker); }
+  .quick-add-btn:hover{ filter:brightness(1.08); }
+  .emoji-opt:hover{ border-color:var(--ink-faint); }
+  .btn-cancel:hover{ color:var(--ink); }
+  .btn-save:hover{ filter:brightness(1.08); }
+  .btn-danger:hover{ background:var(--breaker-soft); }
+  .btn-quiet:hover{ border-color:var(--accent); color:var(--ink); }
+  .lib-archived-toggle:hover{ color:var(--ink); }
+  .capture-type:hover{ color:var(--ink-dim); }
+}
 </style>
 </head>
 <body>
