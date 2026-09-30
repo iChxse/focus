@@ -1061,7 +1061,8 @@ function projectSpentMin(pid, fromIso){
 function sortDayTasks(list, iso){
   const byTime=(a,b)=>parseTimeLabelMinutes(a.time)-parseTimeLabelMinutes(b.time);
   const order=dayOrder[iso];
-  let open=list.filter(t=>!t.completed), done=list.filter(t=>t.completed).sort(byTime);
+  // Finished ones follow in the order they were done, earliest first.
+  let open=list.filter(t=>!t.completed), done=list.filter(t=>t.completed).sort((a,b)=>new Date(a.completedAt)-new Date(b.completedAt));
   if(!order) return [...open.sort(byTime), ...done];
   const known=open.filter(t=>order.includes(t.id)).sort((a,b)=>order.indexOf(a.id)-order.indexOf(b.id));
   open.filter(t=>!order.includes(t.id)).sort(byTime).forEach(t=>{
@@ -1164,12 +1165,16 @@ function renderNow(){
 }
 function renderTodayTasks(){
   const t=today();
-  const todayTasks = sortDayTasks(tasks.filter(tk=>tk.scheduledDate===t), t);
+  // Finished tasks drop off this list; they show in Today's log, which opens the day editor.
+  const scheduled = tasks.filter(tk=>tk.scheduledDate===t);
+  const todayTasks = sortDayTasks(scheduled.filter(tk=>!tk.completed), t);
   const list=document.getElementById('nowTodayList');
   list.innerHTML='';
-  const canReorder = todayTasks.filter(tk=>!tk.completed).length>1;
+  const canReorder = todayTasks.length>1;
   document.getElementById('nowTasksResort').style.display = dayOrder[t] && canReorder ? '' : 'none';
-  if(!todayTasks.length) list.innerHTML = `<div class="empty-line">Nothing scheduled — maybe <span class="link" onclick="switchView('plan')">plan the day</span>.</div>`;
+  if(!todayTasks.length) list.innerHTML = scheduled.length
+    ? `<div class="empty-line">All done for today.</div>`
+    : `<div class="empty-line">Nothing scheduled — maybe <span class="link" onclick="switchView('plan')">plan the day</span>.</div>`;
   else todayTasks.forEach(tk=>list.appendChild(makeTaskRow(tk, { handle: canReorder && !tk.completed, dateIso:t })));
 }
 function renderTodayHabits(){
