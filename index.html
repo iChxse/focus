@@ -383,9 +383,6 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
 .quick-add-row .field-input{ flex:1; margin-bottom:0; }
 .quick-add-btn{ width:46px; border-radius:var(--r-md); background:var(--accent); color:var(--accent-ink); font-size:22px; line-height:1; flex-shrink:0; }
 
-.emoji-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-.emoji-opt{ font-size:20px; width:44px; height:44px; display:flex; align-items:center; justify-content:center; border:1px solid var(--line); border-radius:var(--r-md); cursor:pointer; transition:all .15s; }
-.emoji-opt.selected{ border-color:var(--accent); background:var(--accent-soft); }
 /* Pinned to the bottom of the sheet so Done/Save stays reachable however long the body gets */
 .sheet-actions{ display:flex; flex-wrap:wrap; gap:10px; padding:12px var(--gutter) calc(22px + var(--safe-b)); position:sticky; bottom:0; background:var(--bg-sheet); }
 .sheet-actions > button{ min-width:110px; }
@@ -434,7 +431,6 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
   .more-toggle:hover{ color:var(--accent); }
   .remove-btn:hover{ color:var(--breaker); }
   .quick-add-btn:hover{ filter:brightness(1.08); }
-  .emoji-opt:hover{ border-color:var(--ink-faint); }
   .btn-cancel:hover{ color:var(--ink); }
   .btn-save:hover{ filter:brightness(1.08); }
   .btn-danger:hover{ background:var(--breaker-soft); }
@@ -672,8 +668,6 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
     <div class="sheet-title" id="habitSheetTitle">New habit</div>
     <div class="sheet-body">
       <input class="field-input" id="habitName" placeholder="e.g. Gym, Read, Stretch" onkeydown="if(event.key==='Enter')saveHabit()">
-      <div class="field-label">Emoji</div>
-      <div class="emoji-row" id="habitEmojiRow"></div>
       <div class="field-label">Repeats</div>
       <div class="chip-row">
         <button class="chip active" id="habitRepeatDaily" onclick="selectHabitRepeat('daily')">Every day</button>
@@ -852,7 +846,6 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
 
 <script>
 // ═══ SECTION: CONSTANTS ═══
-const EMOJIS=['💪','📈','💻','📚','🏃','🧘','🎯','🔥','⚡','🌙','☀️','🥗','💊','🎸','✍️','🎨','🧠','🏋️','🚴','🤸','🏊','📷','☕','🍎'];
 const PROJECT_COLORS=['#FF8A3D','#34D399','#5B9DFF','#FF5F7E','#A78BFA','#22D3EE','#FACC15','#F472B6'];
 const OLD_PROJECT_COLORS={'#C6893C':'#FF8A3D','#7C9473':'#34D399','#8C8F9A':'#5B9DFF','#B5544A':'#FF5F7E','#9C8ACB':'#A78BFA','#6E8B96':'#22D3EE','#B08968':'#FACC15','#A3A899':'#F472B6'};
 
@@ -883,7 +876,6 @@ let selectedTaskDate = '';
 let selectedTaskProjectId = null;
 let editTaskId = null;
 let addTaskDefaultProjectId = null;
-let selectedHabitEmoji = '💪';
 let selectedHabitRepeat = 'daily';
 let selectedHabitDays = [];
 let selectedHabitTimes = 3;
@@ -1882,8 +1874,8 @@ function makeHabitLibRow(h){
   el.className='lib-row'; el.setAttribute('role','button'); el.setAttribute('tabindex','0');
   const schedStr = h.repeatType==='daily' ? 'Every day' : isWeeklyHabit(h) ? habitTarget(h)+'× a week' : h.repeatDays.map(d=>['Su','Mo','Tu','We','Th','Fr','Sa'][d]).join(' · ');
   el.innerHTML=`
-    <div class="lib-row-main"><span style="font-size:16px;">${h.emoji}</span><span class="lib-row-title">${esc(h.name)}</span></div>
-    <div class="lib-row-meta">${schedStr} · ${habitStreakLabel(h)}</div>`;
+    <div class="lib-row-main"><span class="lib-row-title">${esc(h.name)}</span></div>
+    <div class="lib-row-meta" style="padding-left:0;">${schedStr} · ${habitStreakLabel(h)}</div>`;
   el.onclick=()=>openHabitDetailSheet(h.id);
   return el;
 }
@@ -2190,10 +2182,6 @@ function deleteTaskConfirmed(){
 }
 
 // ═══ SECTION: HABIT SHEET ═══
-function renderHabitEmojiRow(){
-  document.getElementById('habitEmojiRow').innerHTML = EMOJIS.map(e=>`<div class="emoji-opt${e===selectedHabitEmoji?' selected':''}" role="button" tabindex="0" onclick="pickHabitEmoji('${e}')">${e}</div>`).join('');
-}
-function pickHabitEmoji(e){ selectedHabitEmoji=e; renderHabitEmojiRow(); }
 function selectHabitRepeat(type){
   selectedHabitRepeat=type;
   document.getElementById('habitRepeatDaily').classList.toggle('active', type==='daily');
@@ -2211,26 +2199,24 @@ function toggleHabitDay(day,el){
   else { selectedHabitDays.push(day); el.classList.add('active'); }
 }
 function openNewHabit(){
-  editHabitId=null; selectedHabitEmoji='💪'; selectedHabitRepeat='daily'; selectedHabitDays=[]; selectHabitTimes(3);
+  editHabitId=null; selectedHabitRepeat='daily'; selectedHabitDays=[]; selectHabitTimes(3);
   document.getElementById('habitName').value='';
   document.getElementById('habitDeleteWrap').style.display='none';
   document.getElementById('habitSaveBtn').textContent='Add';
   document.getElementById('habitSheetTitle').textContent='New habit';
   selectHabitRepeat('daily');
   document.querySelectorAll('#habitDaysRow .chip').forEach(c=>c.classList.remove('active'));
-  renderHabitEmojiRow();
   openSheet('sheetHabit');
 }
 function openEditHabit(id){
   const h=habits.find(x=>x.id===id); if(!h) return;
-  editHabitId=id; selectedHabitEmoji=h.emoji; selectedHabitRepeat=h.repeatType; selectedHabitDays=[...(h.repeatDays||[])];
+  editHabitId=id; selectedHabitRepeat=h.repeatType; selectedHabitDays=[...(h.repeatDays||[])];
   document.getElementById('habitName').value=h.name;
   document.getElementById('habitSheetTitle').textContent='Edit habit';
   document.getElementById('habitSaveBtn').textContent='Save';
   document.getElementById('habitDeleteWrap').style.display='';
   selectHabitRepeat(h.repeatType);
   selectHabitTimes(h.timesPerWeek||3);
-  renderHabitEmojiRow();
   document.querySelectorAll('#habitDaysRow .chip').forEach(c=>c.classList.toggle('active', selectedHabitDays.includes(parseInt(c.dataset.day))));
   openSheet('sheetHabit');
 }
@@ -2240,9 +2226,9 @@ function saveHabit(){
   if(selectedHabitRepeat==='custom' && !selectedHabitDays.length){ showToast('Pick at least one day'); return false; }
   if(editHabitId){
     const h=habits.find(x=>x.id===editHabitId);
-    if(h){ h.name=name; h.emoji=selectedHabitEmoji; h.repeatType=selectedHabitRepeat; h.repeatDays=selectedHabitDays; h.timesPerWeek=selectedHabitTimes; }
+    if(h){ h.name=name; h.repeatType=selectedHabitRepeat; h.repeatDays=selectedHabitDays; h.timesPerWeek=selectedHabitTimes; }
   } else {
-    habits.push({ id:'h'+Date.now(), name, emoji:selectedHabitEmoji, repeatType:selectedHabitRepeat, repeatDays:selectedHabitDays, timesPerWeek:selectedHabitTimes, bestStreak:0, time:'', createdAt:new Date().toISOString() });
+    habits.push({ id:'h'+Date.now(), name, repeatType:selectedHabitRepeat, repeatDays:selectedHabitDays, timesPerWeek:selectedHabitTimes, bestStreak:0, time:'', createdAt:new Date().toISOString() });
   }
   saveAll(); closeSheet('sheetHabit'); renderCurrentView();
   showToast(editHabitId?'Habit updated':'Habit added');
@@ -2427,7 +2413,7 @@ function renderCaptureExtra(){
       <input type="number" inputmode="numeric" class="field-input" id="captureMinutes" min="0" placeholder="Minutes (optional)" value="${captureDidMinutes||''}" oninput="captureDidMinutes=parseInt(this.value)||null">`
       : `<button type="button" class="more-toggle" onclick="captureDidTimeOpen=true;renderCaptureExtra();document.getElementById('captureMinutes')?.focus()">+ Time spent</button>`}`;
   } else if(captureType==='habit'){
-    wrap.innerHTML = `<div class="field-label">Which habit?</div><div class="chip-row">${habits.map(h=>`<button class="chip${captureHabitId===h.id?' active':''}" onclick="setCaptureHabit('${h.id}')">${h.emoji} ${esc(h.name)}</button>`).join('')}</div>`;
+    wrap.innerHTML = `<div class="field-label">Which habit?</div><div class="chip-row">${habits.map(h=>`<button class="chip${captureHabitId===h.id?' active':''}" onclick="setCaptureHabit('${h.id}')">${esc(h.name)}</button>`).join('')}</div>`;
   } else if(captureType==='slip'){
     wrap.innerHTML = `
       <div class="field-label">Which breaker?</div>
@@ -2712,7 +2698,7 @@ function renderReview(){
   // Habits
   if(habits.length) section('Habits', s.habitRows.length ? s.habitRows.map(r=>{
     const pct=Math.round(r.done/r.sched*100);
-    return `<div class="review-row"><div class="review-row-top"><span class="review-row-name">${r.h.emoji} ${esc(r.h.name)}</span><span class="review-row-value">${r.done}/${r.sched}</span></div>
+    return `<div class="review-row"><div class="review-row-top"><span class="review-row-name">${esc(r.h.name)}</span><span class="review-row-value">${r.done}/${r.sched}</span></div>
       <div class="review-meter"><div class="review-meter-fill" style="width:${pct}%;background:var(--habit-mark)"></div></div></div>`;
   }).join('') : '<div class="empty-line">No habits were scheduled in this period.</div>');
 
