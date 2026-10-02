@@ -415,6 +415,7 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
 ───────────────────────────────────────── */
 .toast{ position:fixed; bottom:calc(var(--nav-h) + 16px + var(--safe-b)); left:50%; transform:translateX(-50%) translateY(16px); display:flex; align-items:center; gap:16px; background:var(--bg-hover); border:1px solid var(--line); border-radius:999px; box-shadow:0 10px 30px rgba(0,0,0,.45); color:var(--ink); font-size:14px; padding:11px 20px; z-index:300; white-space:nowrap; opacity:0; transition:opacity .2s, transform .2s; pointer-events:none; max-width:88vw; }
 .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+.toast-msg{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .toast-undo{ font-size:14px; font-weight:600; color:var(--accent); flex-shrink:0; }
 
 /* Hover styles only for a real mouse. On a phone, :hover sticks to whatever
@@ -2973,7 +2974,7 @@ let _toastTimer;
 function showToast(msg,undoFn){
   const el=document.getElementById('toast');
   el.innerHTML='';
-  const span=document.createElement('span'); span.textContent=msg;
+  const span=document.createElement('span'); span.className='toast-msg'; span.textContent=msg;
   el.appendChild(span);
   if(undoFn){
     const btn=document.createElement('button');
