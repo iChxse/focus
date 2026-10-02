@@ -2042,15 +2042,14 @@ function ideaToTask(){
   closeSheet('sheetIdea');
   openTaskSheet(null);
   ideaToTaskId=id;
-  const [first, ...rest]=text.split('\n');
-  const notes=rest.join('\n').trim();
-  document.getElementById('taskTitle').value=first.trim();
-  if(notes){
-    document.getElementById('taskNotes').value=notes;
-    taskMoreOpen=true;
-    document.getElementById('taskMoreFields').style.display='';
-    document.getElementById('taskMoreToggle').style.display='none';
-  }
+  // The idea becomes the task's notes; the title is left for you to write.
+  const notesEl=document.getElementById('taskNotes');
+  notesEl.value=text;
+  taskMoreOpen=true;
+  document.getElementById('taskMoreFields').style.display='';
+  document.getElementById('taskMoreToggle').style.display='none';
+  notesEl.style.height=Math.min(notesEl.scrollHeight+2, 240)+'px';
+  setTimeout(()=>document.getElementById('taskTitle').focus(),300);
 }
 
 // ═══ SECTION: PROJECT DETAIL ═══
@@ -2637,7 +2636,7 @@ function closeSheet(id){
   const wasOpen=el.classList.contains('open');
   el.classList.remove('open');
   const sheet=el.querySelector('.sheet'); sheet.style.transform=''; sheet.classList.remove('dragging');
-  if(id==='sheetTask'){ editTaskId=null; addTaskDefaultProjectId=null; ideaToTaskId=null; }
+  if(id==='sheetTask'){ editTaskId=null; addTaskDefaultProjectId=null; ideaToTaskId=null; document.getElementById('taskNotes').style.height=''; }
   if(id==='sheetHabit') editHabitId=null;
   if(id==='sheetBreaker') editBreakerId=null;
   if(id==='sheetTask' && wasOpen && dayEditReturn){ dayEditReturn=false; renderDayEditor(); openSheet('sheetDay'); }
