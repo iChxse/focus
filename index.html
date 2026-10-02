@@ -539,12 +539,12 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
     <div class="view-head"><h1 class="view-title">Library</h1></div>
     <div class="view-scroll">
       <div class="lib-group">
-        <div class="lib-label">Ideas <span class="lib-add" onclick="openIdeas(true)">+ New</span></div>
-        <div id="libIdeasRow" class="card"></div>
-      </div>
-      <div class="lib-group">
         <div class="lib-label">Projects <span class="lib-add" onclick="openNewProject()">+ New</span></div>
         <div id="libProjectsList" class="card"></div>
+      </div>
+      <div class="lib-group">
+        <div class="lib-label">Ideas <span class="lib-add" onclick="openIdeas(true)">+ New</span></div>
+        <div id="libIdeasRow" class="card"></div>
       </div>
       <div class="lib-group">
         <div class="lib-label">Habits <span class="lib-add" onclick="openNewHabit()">+ New</span></div>
@@ -2033,13 +2033,24 @@ function deleteIdea(){
   const r=removeIdea(editIdeaId); if(!r) return;
   showToast('Idea deleted', ()=>{ ideas.splice(r.idx,0,r.gone); saveAll(); renderCurrentView(); });
 }
+// Opens a new task filled in from the idea; the idea is only removed once that task is added.
+let ideaToTaskId=null;
 function ideaToTask(){
   const text=document.getElementById('ideaEditText').value.trim();
   if(!text) return;
-  const r=removeIdea(editIdeaId); if(!r) return;
-  const tk={ id:newTaskId(), title:text, projectId:null, notes:'', completed:false, completedAt:null, scheduledDate:null, soon:false, estimateMin:null, time:'', createdAt:new Date().toISOString() };
-  tasks.unshift(tk); saveAll(); renderCurrentView();
-  showToast('Moved to tasks', ()=>{ tasks=tasks.filter(x=>x.id!==tk.id); ideas.splice(r.idx,0,r.gone); saveAll(); renderCurrentView(); });
+  const id=editIdeaId;
+  closeSheet('sheetIdea');
+  openTaskSheet(null);
+  ideaToTaskId=id;
+  const [first, ...rest]=text.split('\n');
+  const notes=rest.join('\n').trim();
+  document.getElementById('taskTitle').value=first.trim();
+  if(notes){
+    document.getElementById('taskNotes').value=notes;
+    taskMoreOpen=true;
+    document.getElementById('taskMoreFields').style.display='';
+    document.getElementById('taskMoreToggle').style.display='none';
+  }
 }
 
 // ═══ SECTION: PROJECT DETAIL ═══
@@ -2299,8 +2310,10 @@ function saveTask(){
     tasks.unshift({ id:newTaskId(), title, projectId:selectedTaskProjectId||null, notes, completed:false, completedAt:null, scheduledDate, soon, estimateMin:selectedTaskEstimate, time, repeat, createdAt:new Date().toISOString() });
   }
   addTaskDefaultProjectId=null;
+  const fromIdea = !wasEdit && ideaToTaskId ? ideas.findIndex(i=>i.id===ideaToTaskId) : -1;
+  if(fromIdea>=0) ideas.splice(fromIdea,1);
   saveAll(); closeSheet('sheetTask'); renderCurrentView();
-  showToast(wasEdit?'Task updated':'Task added');
+  showToast(wasEdit?'Task updated':fromIdea>=0?'Moved to tasks':'Task added');
   return true;
 }
 function deleteTaskConfirmed(){
@@ -2624,7 +2637,7 @@ function closeSheet(id){
   const wasOpen=el.classList.contains('open');
   el.classList.remove('open');
   const sheet=el.querySelector('.sheet'); sheet.style.transform=''; sheet.classList.remove('dragging');
-  if(id==='sheetTask'){ editTaskId=null; addTaskDefaultProjectId=null; }
+  if(id==='sheetTask'){ editTaskId=null; addTaskDefaultProjectId=null; ideaToTaskId=null; }
   if(id==='sheetHabit') editHabitId=null;
   if(id==='sheetBreaker') editBreakerId=null;
   if(id==='sheetTask' && wasOpen && dayEditReturn){ dayEditReturn=false; renderDayEditor(); openSheet('sheetDay'); }
