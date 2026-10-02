@@ -635,9 +635,9 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
       <input class="field-input" id="taskTitle" placeholder="What needs to happen?" onkeydown="if(event.key==='Enter')saveTask()">
       <div class="dropdown-row">
         <div class="dropdown-field">
-          <button type="button" class="dropdown-btn" id="taskDateBtn" onclick="event.stopPropagation();toggleTaskDateMenu()">No date <span class="caret">▾</span></button>
+          <button type="button" class="dropdown-btn" id="taskDateBtn" onclick="event.stopPropagation();toggleTaskDateMenu()">No due date <span class="caret">▾</span></button>
           <div class="dropdown-menu" id="taskDateMenu" style="display:none;">
-            <button type="button" onclick="pickTaskBucket('backlog')">No date</button>
+            <button type="button" onclick="pickTaskBucket('backlog')">No due date</button>
             <button type="button" onclick="pickTaskBucket('today')">Today</button>
             <button type="button" onclick="pickTaskBucket('tomorrow')">Tomorrow</button>
             <button type="button" onclick="pickTaskBucket('soon')">This week / Soon</button>
@@ -2181,8 +2181,8 @@ function toggleTaskProjectMenu(){
 }
 function updateTaskDateBtn(){
   const btn=document.getElementById('taskDateBtn');
-  const labels={ backlog:'No date', soon:'This week / Soon', today:'Today', tomorrow:'Tomorrow', date: selectedTaskDate?fmtScheduleLabel(selectedTaskDate):'Pick date…' };
-  btn.innerHTML = esc(labels[selectedTaskBucket]||'No date')+' <span class="caret">▾</span>';
+  const labels={ backlog:'No due date', soon:'This week / Soon', today:'Today', tomorrow:'Tomorrow', date: selectedTaskDate?fmtScheduleLabel(selectedTaskDate):'Pick date…' };
+  btn.innerHTML = esc(labels[selectedTaskBucket]||'No due date')+' <span class="caret">▾</span>';
   btn.classList.toggle('set', selectedTaskBucket!=='backlog');
 }
 function pickTaskBucket(bucket){
@@ -2491,6 +2491,19 @@ let captureTaskMoreOpen=false, captureTaskNotes='', captureTaskEstimate=null, ca
 function pickCaptureTaskEstimate(min){ captureTaskEstimate = captureTaskEstimate===min ? null : min; renderCaptureExtra(); }
 function pickCaptureTaskRepeat(freq){ captureTaskRepeat=freq; renderCaptureExtra(); }
 let captureSlipBreakerId=null, captureHabitId=null, captureTaskProjectId=null, captureTaskDate='', captureDidProjectId=null, captureDidMinutes=null, captureDidTimeOpen=false, captureSlipMinutes=null;
+// Day that Did it, Habit and Failure land on, so a forgotten day can be filled in.
+let captureDay='', captureDayPick=false;
+function setCaptureDay(iso, pick){ captureDay=iso||today(); captureDayPick=!!pick; renderCaptureExtra(); }
+function captureDayRow(){
+  const y=addDays(today(),-1), other=captureDayPick || (captureDay!==today() && captureDay!==y);
+  return `<div class="field-label">Day</div>
+    <div class="chip-row">
+      <button class="chip${!other&&captureDay===today()?' active':''}" onclick="setCaptureDay(today())">Today</button>
+      <button class="chip${!other&&captureDay===y?' active':''}" onclick="setCaptureDay('${y}')">Yesterday</button>
+      <button class="chip${other?' active':''}" onclick="setCaptureDay(captureDay,true)">${other&&captureDay<y?esc(fmtScheduleLabel(captureDay)):'Pick date…'}</button>
+    </div>
+    ${other?`<input type="date" class="field-input" max="${today()}" value="${captureDay}" onchange="if(this.value&&this.value<=today()){captureDay=this.value;renderCaptureExtra();}">`:''}`;
+}
 function setCaptureType(type){
   captureType=type;
   document.querySelectorAll('.capture-type').forEach(b=>b.classList.toggle('active', b.dataset.t===type));
@@ -2523,14 +2536,14 @@ function toggleCaptureProjectMenu(){
 function renderCaptureExtra(){
   const wrap=document.getElementById('captureExtra');
   if(captureType==='task'){
-    const dateLabels={ backlog:'No date', soon:'This week / Soon', today:'Today', tomorrow:'Tomorrow', date: captureTaskDate?fmtScheduleLabel(captureTaskDate):'Pick date…' };
+    const dateLabels={ backlog:'No due date', soon:'This week / Soon', today:'Today', tomorrow:'Tomorrow', date: captureTaskDate?fmtScheduleLabel(captureTaskDate):'Pick date…' };
     const proj = projects.find(p=>p.id===captureTaskProjectId);
     wrap.innerHTML = `
       <div class="dropdown-row">
         <div class="dropdown-field">
-          <button type="button" class="dropdown-btn${captureTaskBucket!=='backlog'?' set':''}" onclick="event.stopPropagation();toggleCaptureDateMenu()">${esc(dateLabels[captureTaskBucket]||'No date')} <span class="caret">▾</span></button>
+          <button type="button" class="dropdown-btn${captureTaskBucket!=='backlog'?' set':''}" onclick="event.stopPropagation();toggleCaptureDateMenu()">${esc(dateLabels[captureTaskBucket]||'No due date')} <span class="caret">▾</span></button>
           <div class="dropdown-menu" id="captureDateMenu" style="display:none;">
-            <button type="button" onclick="setCaptureBucket('backlog')">No date</button>
+            <button type="button" onclick="setCaptureBucket('backlog')">No due date</button>
             <button type="button" onclick="setCaptureBucket('today')">Today</button>
             <button type="button" onclick="setCaptureBucket('tomorrow')">Tomorrow</button>
             <button type="button" onclick="setCaptureBucket('soon')">This week / Soon</button>
@@ -2559,8 +2572,9 @@ function renderCaptureExtra(){
   } else if(captureType==='idea'){
     wrap.innerHTML = `<div class="empty-line">Goes to Ideas in Library, not your tasks.</div>`;
   } else if(captureType==='did'){
-    // Saved as a finished task for today; time spent is optional.
+    // Saved as a finished task on the chosen day; time spent is optional.
     wrap.innerHTML = `
+      ${captureDayRow()}
       <div class="field-label">Project</div>
       <div class="chip-row">
         <button class="chip${!captureDidProjectId?' active':''}" onclick="setCaptureDidProject(null)">None</button>
@@ -2571,9 +2585,10 @@ function renderCaptureExtra(){
       <input type="number" inputmode="numeric" class="field-input" id="captureMinutes" min="0" placeholder="Minutes (optional)" value="${captureDidMinutes||''}" oninput="captureDidMinutes=parseInt(this.value)||null">`
       : `<button type="button" class="more-toggle" onclick="captureDidTimeOpen=true;renderCaptureExtra();document.getElementById('captureMinutes')?.focus()">+ Time spent</button>`}`;
   } else if(captureType==='habit'){
-    wrap.innerHTML = `<div class="field-label">Which habit?</div><div class="chip-row">${habits.map(h=>`<button class="chip${captureHabitId===h.id?' active':''}" onclick="setCaptureHabit('${h.id}')">${esc(h.name)}</button>`).join('')}</div>`;
+    wrap.innerHTML = `${captureDayRow()}<div class="field-label">Which habit?</div><div class="chip-row">${habits.map(h=>`<button class="chip${captureHabitId===h.id?' active':''}" onclick="setCaptureHabit('${h.id}')">${esc(h.name)}</button>`).join('')}</div>`;
   } else if(captureType==='slip'){
     wrap.innerHTML = `
+      ${captureDayRow()}
       <div class="field-label">Which breaker?</div>
       <div class="chip-row">${breakers.map(b=>`<button class="chip${captureSlipBreakerId===b.id?' active':''}" onclick="setCaptureSlipBreaker('${b.id}')">${esc(b.name)}</button>`).join('')}</div>
       <div class="field-label">Approx duration in minutes (optional)</div>
@@ -2598,6 +2613,7 @@ function openCapture(){
   document.getElementById('captureText').value='';
   captureTaskBucket='backlog'; captureTaskDate=''; captureTaskProjectId=null; captureDidProjectId=null;
   captureTaskMoreOpen=false; captureTaskNotes=''; captureTaskEstimate=null; captureTaskTime=''; captureTaskRepeat=null; captureDidMinutes=null; captureDidTimeOpen=false; captureSlipMinutes=null;
+  captureDay=today(); captureDayPick=false;
   captureHabitId = habits[0] ? habits[0].id : null;
   captureSlipBreakerId = breakers[0] ? breakers[0].id : null;
   captureTypeLocked=false;
@@ -2609,6 +2625,7 @@ function openCaptureForSlip(breakerId){
   document.getElementById('captureText').value='';
   captureSlipBreakerId=breakerId;
   captureSlipMinutes=null;
+  captureDay=today(); captureDayPick=false;
   captureTypeLocked=true;
   setCaptureType('slip');
   openSheet('sheetCapture');
@@ -2618,6 +2635,8 @@ function saveCapture(){
   if(!text){ document.getElementById('captureText').focus(); return; }
   if(captureType==='task' && captureTaskBucket==='date' && !captureTaskDate){ showToast('Pick a date first'); return; }
   const now=new Date();
+  const day = captureDay && captureDay<=today() ? captureDay : today();
+  const dayNote = day===today() ? '' : ' for '+(day===addDays(today(),-1)?'yesterday':fmtScheduleLabel(day));
   if(captureType==='task'){
     let scheduledDate = ['today','tomorrow','date'].includes(captureTaskBucket) ? captureTaskDate : null;
     let soon = captureTaskBucket==='soon';
@@ -2631,18 +2650,18 @@ function saveCapture(){
     ideas.unshift({ id:'i'+Date.now()+Math.random().toString(36).slice(2,6), text, createdAt:at, updatedAt:at });
     showToast('Idea saved');
   } else if(captureType==='did'){
-    const at=now.toISOString();
-    const tk={ id:newTaskId(), title:text, projectId:captureDidProjectId||null, notes:'', completed:true, completedAt:at, scheduledDate:today(), soon:false, estimateMin:null, time:'', createdAt:at };
+    const at=momentOn(day).toISOString();
+    const tk={ id:newTaskId(), title:text, projectId:captureDidProjectId||null, notes:'', completed:true, completedAt:at, scheduledDate:day, soon:false, estimateMin:null, time:'', createdAt:now.toISOString() };
     tasks.unshift(tk);
-    upsertEntry({ id:'et_'+tk.id, type:'task', sourceId:tk.id, title:text, subtitle:'', projectId:tk.projectId, date:today(), start:at, end:null, durationMin:captureDidMinutes>0?captureDidMinutes:null, createdAt:at });
-    showToast('Logged');
+    upsertEntry({ id:'et_'+tk.id, type:'task', sourceId:tk.id, title:text, subtitle:'', projectId:tk.projectId, date:day, start:at, end:null, durationMin:captureDidMinutes>0?captureDidMinutes:null, createdAt:tk.createdAt });
+    showToast('Logged'+dayNote);
   } else if(captureType==='habit'){
-    if(captureHabitId && !habitCompletedOn(captureHabitId,today())) toggleHabitToday(captureHabitId);
-    showToast('Habit marked done');
+    if(captureHabitId && !habitCompletedOn(captureHabitId,day)) toggleHabitOn(captureHabitId, day, true);
+    showToast('Habit marked done'+dayNote);
   } else if(captureType==='slip'){
     if(captureSlipBreakerId){
-      pushBreakerResult(captureSlipBreakerId, today(), 'failure', now.toISOString(), captureSlipMinutes, text);
-      showToast('Failure logged');
+      pushBreakerResult(captureSlipBreakerId, day, 'failure', momentOn(day).toISOString(), captureSlipMinutes, text);
+      showToast('Failure logged'+dayNote);
     }
   }
   saveAll(); closeSheet('sheetCapture'); renderCurrentView();
