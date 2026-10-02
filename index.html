@@ -2485,6 +2485,10 @@ function saveProject(){
 }
 
 // ═══ SECTION: CAPTURE ═══
+// Capture's task mode offers the same extra fields as the task sheet, behind the same toggle.
+let captureTaskMoreOpen=false, captureTaskNotes='', captureTaskEstimate=null, captureTaskTime='', captureTaskRepeat=null;
+function pickCaptureTaskEstimate(min){ captureTaskEstimate = captureTaskEstimate===min ? null : min; renderCaptureExtra(); }
+function pickCaptureTaskRepeat(freq){ captureTaskRepeat=freq; renderCaptureExtra(); }
 let captureSlipBreakerId=null, captureHabitId=null, captureTaskProjectId=null, captureTaskDate='', captureDidProjectId=null, captureDidMinutes=null, captureDidTimeOpen=false, captureSlipMinutes=null;
 function setCaptureType(type){
   captureType=type;
@@ -2540,7 +2544,17 @@ function renderCaptureExtra(){
           </div>
         </div>
       </div>
-      ${captureTaskBucket==='date'?`<input type="date" class="field-input" id="captureTaskDateInput" value="${captureTaskDate||''}" onchange="captureTaskDate=this.value">`:''}`;
+      ${captureTaskBucket==='date'?`<input type="date" class="field-input" id="captureTaskDateInput" value="${captureTaskDate||''}" onchange="captureTaskDate=this.value">`:''}
+      ${captureTaskMoreOpen ? `
+        <div class="field-label" style="margin-top:14px;">Notes</div>
+        <textarea class="field-input" id="captureTaskNotes" rows="2" placeholder="Optional notes" oninput="captureTaskNotes=this.value">${esc(captureTaskNotes)}</textarea>
+        <div class="field-label">Estimate</div>
+        <div class="chip-row">${[[15,'15m'],[30,'30m'],[60,'1h'],[120,'2h']].map(([m,l])=>`<button class="chip${captureTaskEstimate===m?' active':''}" onclick="pickCaptureTaskEstimate(${m})">${l}</button>`).join('')}</div>
+        <div class="field-label">Time</div>
+        <input class="field-input" id="captureTaskTime" placeholder="e.g. 5:00 PM" value="${esc(captureTaskTime)}" oninput="captureTaskTime=this.value">
+        <div class="field-label">Repeats</div>
+        <div class="chip-row">${[[null,'Never'],['daily','Daily'],['weekdays','Weekdays'],['weekly','Weekly'],['monthly','Monthly']].map(([f,l])=>`<button class="chip${captureTaskRepeat===f?' active':''}" onclick="pickCaptureTaskRepeat(${f?`'${f}'`:'null'})">${l}</button>`).join('')}</div>`
+      : `<button type="button" class="more-toggle" onclick="captureTaskMoreOpen=true;renderCaptureExtra()">+ Notes, estimate, time, or repeat</button>`}`;
   } else if(captureType==='idea'){
     wrap.innerHTML = `<div class="empty-line">Goes to Ideas in Library, not your tasks.</div>`;
   } else if(captureType==='did'){
@@ -2581,7 +2595,8 @@ function guessCaptureType(){
 }
 function openCapture(){
   document.getElementById('captureText').value='';
-  captureTaskBucket='backlog'; captureTaskDate=''; captureTaskProjectId=null; captureDidProjectId=null; captureDidMinutes=null; captureDidTimeOpen=false; captureSlipMinutes=null;
+  captureTaskBucket='backlog'; captureTaskDate=''; captureTaskProjectId=null; captureDidProjectId=null;
+  captureTaskMoreOpen=false; captureTaskNotes=''; captureTaskEstimate=null; captureTaskTime=''; captureTaskRepeat=null; captureDidMinutes=null; captureDidTimeOpen=false; captureSlipMinutes=null;
   captureHabitId = habits[0] ? habits[0].id : null;
   captureSlipBreakerId = breakers[0] ? breakers[0].id : null;
   captureTypeLocked=false;
@@ -2603,9 +2618,12 @@ function saveCapture(){
   if(captureType==='task' && captureTaskBucket==='date' && !captureTaskDate){ showToast('Pick a date first'); return; }
   const now=new Date();
   if(captureType==='task'){
-    const scheduledDate = ['today','tomorrow','date'].includes(captureTaskBucket) ? captureTaskDate : null;
-    const soon = captureTaskBucket==='soon';
-    tasks.unshift({ id:'t'+Date.now(), title:text, projectId:captureTaskProjectId||null, notes:'', completed:false, completedAt:null, scheduledDate, soon, estimateMin:null, time:'', createdAt:now.toISOString() });
+    let scheduledDate = ['today','tomorrow','date'].includes(captureTaskBucket) ? captureTaskDate : null;
+    let soon = captureTaskBucket==='soon';
+    // A repeating task needs a first date; default to today.
+    if(captureTaskRepeat && !scheduledDate){ scheduledDate=today(); soon=false; }
+    const repeat = buildRepeat(captureTaskRepeat, scheduledDate);
+    tasks.unshift({ id:newTaskId(), title:text, projectId:captureTaskProjectId||null, notes:captureTaskNotes.trim(), completed:false, completedAt:null, scheduledDate, soon, estimateMin:captureTaskEstimate, time:captureTaskTime.trim(), repeat, createdAt:now.toISOString() });
     showToast('Task added');
   } else if(captureType==='idea'){
     const at=now.toISOString();
