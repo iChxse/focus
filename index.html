@@ -383,9 +383,6 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
 .quick-add-row .field-input{ flex:1; margin-bottom:0; }
 .quick-add-btn{ width:46px; border-radius:var(--r-md); background:var(--accent); color:var(--accent-ink); font-size:22px; line-height:1; flex-shrink:0; }
 
-.emoji-row{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-.emoji-opt{ font-size:20px; width:44px; height:44px; display:flex; align-items:center; justify-content:center; border:1px solid var(--line); border-radius:var(--r-md); cursor:pointer; transition:all .15s; }
-.emoji-opt.selected{ border-color:var(--accent); background:var(--accent-soft); }
 /* Pinned to the bottom of the sheet so Done/Save stays reachable however long the body gets */
 .sheet-actions{ display:flex; flex-wrap:wrap; gap:10px; padding:12px var(--gutter) calc(22px + var(--safe-b)); position:sticky; bottom:0; background:var(--bg-sheet); }
 .sheet-actions > button{ min-width:110px; }
@@ -442,7 +439,6 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
   .more-toggle:hover{ color:var(--accent); }
   .remove-btn:hover{ color:var(--breaker); }
   .quick-add-btn:hover{ filter:brightness(1.08); }
-  .emoji-opt:hover{ border-color:var(--ink-faint); }
   .btn-cancel:hover{ color:var(--ink); }
   .btn-save:hover{ filter:brightness(1.08); }
   .btn-danger:hover{ background:var(--breaker-soft); }
@@ -701,12 +697,19 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
     <div class="sheet-title" id="habitSheetTitle">New habit</div>
     <div class="sheet-body">
       <input class="field-input" id="habitName" placeholder="e.g. Gym, Read, Stretch" onkeydown="if(event.key==='Enter')saveHabit()">
-      <div class="field-label">Emoji</div>
-      <div class="emoji-row" id="habitEmojiRow"></div>
       <div class="field-label">Repeats</div>
       <div class="chip-row">
         <button class="chip active" id="habitRepeatDaily" onclick="selectHabitRepeat('daily')">Every day</button>
         <button class="chip" id="habitRepeatCustom" onclick="selectHabitRepeat('custom')">Custom days</button>
+        <button class="chip" id="habitRepeatWeekly" onclick="selectHabitRepeat('weekly')">Times per week</button>
+      </div>
+      <div class="chip-row" id="habitTimesRow" style="display:none;">
+        <button class="chip" data-times="1" onclick="selectHabitTimes(1)">1×</button>
+        <button class="chip" data-times="2" onclick="selectHabitTimes(2)">2×</button>
+        <button class="chip" data-times="3" onclick="selectHabitTimes(3)">3×</button>
+        <button class="chip" data-times="4" onclick="selectHabitTimes(4)">4×</button>
+        <button class="chip" data-times="5" onclick="selectHabitTimes(5)">5×</button>
+        <button class="chip" data-times="6" onclick="selectHabitTimes(6)">6×</button>
       </div>
       <div class="chip-row" id="habitDaysRow" style="display:none;">
         <button class="chip" data-day="1" onclick="toggleHabitDay(1,this)">M</button>
@@ -893,7 +896,6 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
 
 <script>
 // ═══ SECTION: CONSTANTS ═══
-const EMOJIS=['💪','📈','💻','📚','🏃','🧘','🎯','🔥','⚡','🌙','☀️','🥗','💊','🎸','✍️','🎨','🧠','🏋️','🚴','🤸','🏊','📷','☕','🍎'];
 const PROJECT_COLORS=['#FF8A3D','#34D399','#5B9DFF','#FF5F7E','#A78BFA','#22D3EE','#FACC15','#F472B6'];
 const OLD_PROJECT_COLORS={'#C6893C':'#FF8A3D','#7C9473':'#34D399','#8C8F9A':'#5B9DFF','#B5544A':'#FF5F7E','#9C8ACB':'#A78BFA','#6E8B96':'#22D3EE','#B08968':'#FACC15','#A3A899':'#F472B6'};
 
@@ -926,9 +928,9 @@ let selectedTaskDate = '';
 let selectedTaskProjectId = null;
 let editTaskId = null;
 let addTaskDefaultProjectId = null;
-let selectedHabitEmoji = '💪';
 let selectedHabitRepeat = 'daily';
 let selectedHabitDays = [];
+let selectedHabitTimes = 3;
 let editHabitId = null;
 let editBreakerId = null;
 let selectedProjectColor = PROJECT_COLORS[0];
@@ -989,9 +991,26 @@ function fmtDurLong(min){
 }
 
 // ═══ SECTION: HABIT / BREAKER / TASK / ENTRY HELPERS ═══
-function isHabitScheduledOnDate(h,iso){ return h.repeatType==='daily' ? true : h.repeatDays.includes(dowOf(iso)); }
+// "Times per week" habits have no fixed days: they show every day until done
+// and are judged per Monday–Sunday week instead of per day.
+function isWeeklyHabit(h){ return h.repeatType==='weekly'; }
+function isHabitScheduledOnDate(h,iso){ return h.repeatType==='daily' ? true : isWeeklyHabit(h) ? false : h.repeatDays.includes(dowOf(iso)); }
 function habitCompletedOn(habitId,iso){ return completions.some(c=>c.habitId===habitId && c.date===iso); }
+function weekStartOf(iso){ return addDays(iso, -((dowOf(iso)+6)%7)); }
+function habitWeekCount(habitId,weekStart,upTo){
+  let end=addDays(weekStart,6); if(upTo && upTo<end) end=upTo;
+  return completions.filter(c=>c.habitId===habitId && c.date>=weekStart && c.date<=end).length;
+}
+function habitTarget(h){ return h.timesPerWeek||3; }
+function habitStreakLabel(h){ const n=calcStreak(h); return isWeeklyHabit(h) ? n+' week streak' : n+' day streak'; }
 function calcStreak(h){
+  if(isWeeklyHabit(h)){
+    // Weeks in a row that hit the target; the current week only counts once it's hit.
+    let streak=0, w=weekStartOf(today());
+    if(habitWeekCount(h.id,w)>=habitTarget(h)) streak++;
+    for(let i=0;i<260;i++){ w=addDays(w,-7); if(habitWeekCount(h.id,w)>=habitTarget(h)) streak++; else break; }
+    return streak;
+  }
   let streak=0, d=new Date();
   for(let i=0;i<365;i++){
     const iso=toISO(d);
@@ -1127,7 +1146,8 @@ function sortDayTasks(list, iso){
 }
 function daySummary(iso){
   const tasksCompleted = entries.filter(e=>e.type==='task' && e.date===iso).length;
-  const scheduledHabits = habits.filter(h=>isHabitScheduledOnDate(h,iso));
+  // A times-per-week habit only counts toward a day when it was done that day.
+  const scheduledHabits = habits.filter(h=>isHabitScheduledOnDate(h,iso) || (isWeeklyHabit(h) && habitCompletedOn(h.id,iso)));
   const doneHabits = scheduledHabits.filter(h=>habitCompletedOn(h.id,iso));
   return { tasksCompleted, habitsDone:doneHabits.length, habitsTotal:scheduledHabits.length };
 }
@@ -1232,7 +1252,7 @@ function renderTodayTasks(){
 }
 function renderTodayHabits(){
   const t=today();
-  const scheduled = habits.filter(h=>isHabitScheduledOnDate(h,t));
+  const scheduled = habits.filter(h=>isHabitScheduledOnDate(h,t) || isWeeklyHabit(h));
   const list=document.getElementById('nowHabitsList');
   list.innerHTML='';
   if(!scheduled.length) list.innerHTML='<div class="empty-line">No habits scheduled today.</div>';
@@ -1254,7 +1274,7 @@ function makeHabitRow(h,t){
     <button type="button" class="check-dot" onclick="toggleHabitToday('${h.id}',event)"></button>
     <div class="check-body">
       <div class="check-title">${esc(h.name)}</div>
-      <div class="check-meta">${calcStreak(h)} day streak</div>
+      <div class="check-meta">${isWeeklyHabit(h) ? habitWeekCount(h.id,weekStartOf(t))+'/'+habitTarget(h)+' this week · ' : ''}${habitStreakLabel(h)}</div>
     </div>`;
   el.addEventListener('click', e=>{ if(e.target.closest('.check-dot')) return; openHabitDetailSheet(h.id); });
   return el;
@@ -1708,7 +1728,7 @@ function renderDayEditor(){
       <button type="button" class="remove-btn" onclick="event.stopPropagation();dayRemoveTask('${tk.id}')">Remove</button>
     </div>`;
   });
-  const habitRows=habits.filter(h=>isHabitScheduledOnDate(h,iso) || habitCompletedOn(h.id,iso)).map(h=>{
+  const habitRows=habits.filter(h=>isHabitScheduledOnDate(h,iso) || isWeeklyHabit(h) || habitCompletedOn(h.id,iso)).map(h=>{
     const done=habitCompletedOn(h.id,iso);
     return `<div class="check-row${done?' done':''}" role="button" tabindex="0" onclick="dayToggleHabit('${h.id}')">
       <span class="check-dot"></span>
@@ -1905,10 +1925,10 @@ function makeProjectLibRow(p){
 function makeHabitLibRow(h){
   const el=document.createElement('div');
   el.className='lib-row'; el.setAttribute('role','button'); el.setAttribute('tabindex','0');
-  const schedStr = h.repeatType==='daily' ? 'Every day' : h.repeatDays.map(d=>['Su','Mo','Tu','We','Th','Fr','Sa'][d]).join(' · ');
+  const schedStr = h.repeatType==='daily' ? 'Every day' : isWeeklyHabit(h) ? habitTarget(h)+'× a week' : h.repeatDays.map(d=>['Su','Mo','Tu','We','Th','Fr','Sa'][d]).join(' · ');
   el.innerHTML=`
-    <div class="lib-row-main"><span style="font-size:16px;">${h.emoji}</span><span class="lib-row-title">${esc(h.name)}</span></div>
-    <div class="lib-row-meta">${schedStr} · ${calcStreak(h)} day streak</div>`;
+    <div class="lib-row-main"><span class="lib-row-title">${esc(h.name)}</span></div>
+    <div class="lib-row-meta" style="padding-left:0;">${schedStr} · ${habitStreakLabel(h)}</div>`;
   el.onclick=()=>openHabitDetailSheet(h.id);
   return el;
 }
@@ -2088,12 +2108,23 @@ function openHabitDetailSheet(habitId){
   const h = habits.find(x=>x.id===habitId); if(!h) return;
   document.getElementById('habitDetailTitle').textContent = h.name;
   const streak = calcStreak(h);
+  if(isWeeklyHabit(h)){
+    const target=habitTarget(h), w0=weekStartOf(today());
+    const fmt=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const weeks=[];
+    for(let i=0;i<6;i++){ const w=addDays(w0,-7*i); if(h.createdAt && addDays(w,6)<toISO(new Date(h.createdAt))) break; weeks.push({w, n:habitWeekCount(h.id,w)}); }
+    document.getElementById('habitDetailBody').innerHTML = `
+    <div class="detail-row"><span class="detail-row-label">Current streak</span><span class="detail-row-value">${streak} week${streak!==1?'s':''}</span></div>
+    <div class="field-label" style="margin-top:16px;">History</div>
+    ${weeks.map(r=>`<div class="detail-row"><span class="detail-row-label">${r.w===w0?'This week':fmt(r.w)+' – '+fmt(addDays(r.w,6))}</span><span class="detail-row-value">${r.n}/${target}${r.n>=target?' ✓':''}</span></div>`).join('')}`;
+  } else {
   const recent=[];
   for(let i=0;i<7;i++){ const d=addDays(today(),-i); if(isHabitScheduledOnDate(h,d)) recent.push({date:d, done:habitCompletedOn(h.id,d)}); }
   document.getElementById('habitDetailBody').innerHTML = `
     <div class="detail-row"><span class="detail-row-label">Current streak</span><span class="detail-row-value">${streak} days</span></div>
     <div class="field-label" style="margin-top:16px;">History</div>
     ${recent.length ? recent.map(r=>`<div class="detail-row"><span class="detail-row-label">${new Date(r.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span><span class="detail-row-value">${r.done?'✓ Done':'— Missed'}</span></div>`).join('') : '<div class="empty-line">No history yet.</div>'}`;
+  }
   document.getElementById('habitDetailActions').innerHTML = `<button class="btn-cancel" onclick="closeSheet('sheetHabitDetail')">Close</button><button class="btn-save" onclick="closeSheet('sheetHabitDetail');openEditHabit('${h.id}')">Edit</button>`;
   openSheet('sheetHabitDetail');
 }
@@ -2280,40 +2311,41 @@ function deleteTaskConfirmed(){
 }
 
 // ═══ SECTION: HABIT SHEET ═══
-function renderHabitEmojiRow(){
-  document.getElementById('habitEmojiRow').innerHTML = EMOJIS.map(e=>`<div class="emoji-opt${e===selectedHabitEmoji?' selected':''}" role="button" tabindex="0" onclick="pickHabitEmoji('${e}')">${e}</div>`).join('');
-}
-function pickHabitEmoji(e){ selectedHabitEmoji=e; renderHabitEmojiRow(); }
 function selectHabitRepeat(type){
   selectedHabitRepeat=type;
   document.getElementById('habitRepeatDaily').classList.toggle('active', type==='daily');
   document.getElementById('habitRepeatCustom').classList.toggle('active', type==='custom');
+  document.getElementById('habitRepeatWeekly').classList.toggle('active', type==='weekly');
   document.getElementById('habitDaysRow').style.display = type==='custom' ? '' : 'none';
+  document.getElementById('habitTimesRow').style.display = type==='weekly' ? '' : 'none';
+}
+function selectHabitTimes(n){
+  selectedHabitTimes=n;
+  document.querySelectorAll('#habitTimesRow .chip').forEach(c=>c.classList.toggle('active', parseInt(c.dataset.times)===n));
 }
 function toggleHabitDay(day,el){
   if(selectedHabitDays.includes(day)){ selectedHabitDays=selectedHabitDays.filter(d=>d!==day); el.classList.remove('active'); }
   else { selectedHabitDays.push(day); el.classList.add('active'); }
 }
 function openNewHabit(){
-  editHabitId=null; selectedHabitEmoji='💪'; selectedHabitRepeat='daily'; selectedHabitDays=[];
+  editHabitId=null; selectedHabitRepeat='daily'; selectedHabitDays=[]; selectHabitTimes(3);
   document.getElementById('habitName').value='';
   document.getElementById('habitDeleteWrap').style.display='none';
   document.getElementById('habitSaveBtn').textContent='Add';
   document.getElementById('habitSheetTitle').textContent='New habit';
   selectHabitRepeat('daily');
   document.querySelectorAll('#habitDaysRow .chip').forEach(c=>c.classList.remove('active'));
-  renderHabitEmojiRow();
   openSheet('sheetHabit');
 }
 function openEditHabit(id){
   const h=habits.find(x=>x.id===id); if(!h) return;
-  editHabitId=id; selectedHabitEmoji=h.emoji; selectedHabitRepeat=h.repeatType; selectedHabitDays=[...(h.repeatDays||[])];
+  editHabitId=id; selectedHabitRepeat=h.repeatType; selectedHabitDays=[...(h.repeatDays||[])];
   document.getElementById('habitName').value=h.name;
   document.getElementById('habitSheetTitle').textContent='Edit habit';
   document.getElementById('habitSaveBtn').textContent='Save';
   document.getElementById('habitDeleteWrap').style.display='';
   selectHabitRepeat(h.repeatType);
-  renderHabitEmojiRow();
+  selectHabitTimes(h.timesPerWeek||3);
   document.querySelectorAll('#habitDaysRow .chip').forEach(c=>c.classList.toggle('active', selectedHabitDays.includes(parseInt(c.dataset.day))));
   openSheet('sheetHabit');
 }
@@ -2323,9 +2355,9 @@ function saveHabit(){
   if(selectedHabitRepeat==='custom' && !selectedHabitDays.length){ showToast('Pick at least one day'); return false; }
   if(editHabitId){
     const h=habits.find(x=>x.id===editHabitId);
-    if(h){ h.name=name; h.emoji=selectedHabitEmoji; h.repeatType=selectedHabitRepeat; h.repeatDays=selectedHabitDays; }
+    if(h){ h.name=name; h.repeatType=selectedHabitRepeat; h.repeatDays=selectedHabitDays; h.timesPerWeek=selectedHabitTimes; }
   } else {
-    habits.push({ id:'h'+Date.now(), name, emoji:selectedHabitEmoji, repeatType:selectedHabitRepeat, repeatDays:selectedHabitDays, bestStreak:0, time:'', createdAt:new Date().toISOString() });
+    habits.push({ id:'h'+Date.now(), name, repeatType:selectedHabitRepeat, repeatDays:selectedHabitDays, timesPerWeek:selectedHabitTimes, bestStreak:0, time:'', createdAt:new Date().toISOString() });
   }
   saveAll(); closeSheet('sheetHabit'); renderCurrentView();
   showToast(editHabitId?'Habit updated':'Habit added');
@@ -2512,7 +2544,7 @@ function renderCaptureExtra(){
       <input type="number" inputmode="numeric" class="field-input" id="captureMinutes" min="0" placeholder="Minutes (optional)" value="${captureDidMinutes||''}" oninput="captureDidMinutes=parseInt(this.value)||null">`
       : `<button type="button" class="more-toggle" onclick="captureDidTimeOpen=true;renderCaptureExtra();document.getElementById('captureMinutes')?.focus()">+ Time spent</button>`}`;
   } else if(captureType==='habit'){
-    wrap.innerHTML = `<div class="field-label">Which habit?</div><div class="chip-row">${habits.map(h=>`<button class="chip${captureHabitId===h.id?' active':''}" onclick="setCaptureHabit('${h.id}')">${h.emoji} ${esc(h.name)}</button>`).join('')}</div>`;
+    wrap.innerHTML = `<div class="field-label">Which habit?</div><div class="chip-row">${habits.map(h=>`<button class="chip${captureHabitId===h.id?' active':''}" onclick="setCaptureHabit('${h.id}')">${esc(h.name)}</button>`).join('')}</div>`;
   } else if(captureType==='slip'){
     wrap.innerHTML = `
       <div class="field-label">Which breaker?</div>
@@ -2694,6 +2726,16 @@ function reviewStats(start,end){
   const habitRows = habits.map(h=>{
     const from = h.createdAt ? toISO(new Date(h.createdAt)) : start;
     let done=0, sched=0;
+    if(isWeeklyHabit(h)){
+      // Each Monday–Sunday week that starts in this period (and has begun) counts once.
+      let w=weekStartOf(start); if(w<start) w=addDays(w,7);
+      for(; w<=lastCounted; w=addDays(w,7)){
+        if(addDays(w,6)<from) continue;
+        sched+=habitTarget(h); done+=Math.min(habitWeekCount(h.id,w,end), habitTarget(h));
+      }
+      hDone+=done; hSched+=sched;
+      return { h, done, sched };
+    }
     daysBetween(start>from?start:from, lastCounted).forEach(d=>{
       if(!isHabitScheduledOnDate(h,d)) return;
       sched++; if(habitCompletedOn(h.id,d)) done++;
@@ -2791,7 +2833,7 @@ function renderReview(){
   // Habits
   if(habits.length) section('Habits', s.habitRows.length ? s.habitRows.map(r=>{
     const pct=Math.round(r.done/r.sched*100);
-    return `<div class="review-row"><div class="review-row-top"><span class="review-row-name">${r.h.emoji} ${esc(r.h.name)}</span><span class="review-row-value">${r.done}/${r.sched}</span></div>
+    return `<div class="review-row"><div class="review-row-top"><span class="review-row-name">${esc(r.h.name)}</span><span class="review-row-value">${r.done}/${r.sched}</span></div>
       <div class="review-meter"><div class="review-meter-fill" style="width:${pct}%;background:var(--habit-mark)"></div></div></div>`;
   }).join('') : '<div class="empty-line">No habits were scheduled in this period.</div>');
 
