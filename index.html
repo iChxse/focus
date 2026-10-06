@@ -671,8 +671,10 @@ input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].
           <button class="chip" data-e="60" onclick="pickTaskEstimate(60)">1h</button>
           <button class="chip" data-e="120" onclick="pickTaskEstimate(120)">2h</button>
         </div>
-        <div class="field-label">Time</div>
-        <input class="field-input" id="taskTimeInput" placeholder="e.g. 5:00 PM">
+        <div id="taskTimeWrap">
+          <div class="field-label">Time</div>
+          <input type="time" class="field-input" id="taskTimeInput" aria-label="Time">
+        </div>
         <div id="taskSpentWrap" style="display:none;">
           <div class="field-label">Time spent</div>
           <input type="number" inputmode="numeric" class="field-input" id="taskSpentInput" min="0" placeholder="Minutes (optional)">
@@ -1172,6 +1174,12 @@ function atClockOn(iso, clock){
   if(!m) return momentOn(iso);
   const d=new Date(iso+'T00:00:00'); d.setHours(+m[1], +m[2], 0, 0);
   return d;
+}
+// Tasks keep their planned time as a label ("2:00 PM"); time inputs use "14:00".
+function labelToClock(label){ const m=parseTimeLabelMinutes(label); return m===9999 ? '' : String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+function clockToLabel(clock){
+  const m=/^(\d{1,2}):(\d{2})/.exec(clock||''); if(!m) return '';
+  const h=+m[1]; return (h%12||12)+':'+m[2]+' '+(h>=12?'PM':'AM');
 }
 function clockOf(stamp){ const d=new Date(stamp); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function parseTimeLabelMinutes(label){
@@ -2258,7 +2266,7 @@ function openTaskSheet(taskId){
     selectedTaskEstimate = tk.estimateMin||null;
     selectedTaskRepeat = tk.repeat ? tk.repeat.freq : null;
     document.getElementById('taskNotes').value = tk.notes||'';
-    document.getElementById('taskTimeInput').value = tk.time||'';
+    document.getElementById('taskTimeInput').value = labelToClock(tk.time);
     const ent = tk.completed ? entries.find(e=>e.id==='et_'+tk.id) : null;
     document.getElementById('taskSpentInput').value = ent && ent.durationMin ? ent.durationMin : '';
     taskMoreOpen = !!(tk.notes || tk.estimateMin || tk.time || tk.repeat || (ent && ent.durationMin));
@@ -2285,6 +2293,8 @@ function openTaskSheet(taskId){
   const doneOn=document.getElementById('taskDoneOnInput');
   document.getElementById('taskDoneOnWrap').style.display = tk && tk.completed ? '' : 'none';
   document.getElementById('taskSpentWrap').style.display = tk && tk.completed ? '' : 'none';
+  // A finished task's time lives next to Done on.
+  document.getElementById('taskTimeWrap').style.display = tk && tk.completed ? 'none' : '';
   document.getElementById('taskDateBtn').parentElement.style.display = tk && tk.completed ? 'none' : '';
   if(tk && tk.completed) document.getElementById('taskDateInput').style.display='none';
   doneOn.max=today();
@@ -2302,7 +2312,7 @@ function saveTask(){
   if(selectedTaskRepeat && !scheduledDate){ scheduledDate=today(); soon=false; }
   const repeat = buildRepeat(selectedTaskRepeat, scheduledDate);
   const notes = document.getElementById('taskNotes').value.trim();
-  const time = document.getElementById('taskTimeInput').value.trim();
+  const time = clockToLabel(document.getElementById('taskTimeInput').value);
   const wasEdit=!!editTaskId;
   if(editTaskId){
     const tk=tasks.find(t=>t.id===editTaskId);
@@ -2509,7 +2519,7 @@ function saveProject(){
 let captureTaskMoreOpen=false, captureTaskNotes='', captureTaskEstimate=null, captureTaskTime='', captureTaskRepeat=null;
 function pickCaptureTaskEstimate(min){ captureTaskEstimate = captureTaskEstimate===min ? null : min; renderCaptureExtra(); }
 function pickCaptureTaskRepeat(freq){ captureTaskRepeat=freq; renderCaptureExtra(); }
-let captureSlipBreakerId=null, captureHabitId=null, captureTaskProjectId=null, captureTaskDate='', captureDidProjectId=null, captureDidMinutes=null, captureDidTimeOpen=false, captureDidClock='', captureSlipMinutes=null;
+let captureSlipBreakerId=null, captureHabitId=null, captureTaskProjectId=null, captureTaskDate='', captureDidProjectId=null, captureDidMinutes=null, captureDidTimeOpen=false, captureClock='', captureSlipMinutes=null;
 // Day that Did it, Habit and Failure land on, so a forgotten day can be filled in.
 let captureDay='', captureDayPick=false;
 function setCaptureDay(iso, pick){ captureDay=iso||today(); captureDayPick=!!pick; renderCaptureExtra(); }
@@ -2522,6 +2532,10 @@ function captureDayRow(){
       <button class="chip${other?' active':''}" onclick="setCaptureDay(captureDay,true)">${other&&captureDay<y?esc(fmtScheduleLabel(captureDay)):'Pick date…'}</button>
     </div>
     ${other?`<input type="date" class="field-input" max="${today()}" value="${captureDay}" onchange="if(this.value&&this.value<=today()){captureDay=this.value;renderCaptureExtra();}">`:''}`;
+}
+function captureTimeField(){
+  return `<div class="field-label">Time</div>
+    <input type="time" class="field-input" id="captureClock" value="${captureClock}" onchange="captureClock=this.value">`;
 }
 function setCaptureType(type){
   captureType=type;
@@ -2584,7 +2598,7 @@ function renderCaptureExtra(){
         <div class="field-label">Estimate</div>
         <div class="chip-row">${[[15,'15m'],[30,'30m'],[60,'1h'],[120,'2h']].map(([m,l])=>`<button class="chip${captureTaskEstimate===m?' active':''}" onclick="pickCaptureTaskEstimate(${m})">${l}</button>`).join('')}</div>
         <div class="field-label">Time</div>
-        <input class="field-input" id="captureTaskTime" placeholder="e.g. 5:00 PM" value="${esc(captureTaskTime)}" oninput="captureTaskTime=this.value">
+        <input type="time" class="field-input" id="captureTaskTime" aria-label="Time" value="${captureTaskTime}" onchange="captureTaskTime=this.value">
         <div class="field-label">Repeats</div>
         <div class="chip-row">${[[null,'Never'],['daily','Daily'],['weekdays','Weekdays'],['weekly','Weekly'],['monthly','Monthly']].map(([f,l])=>`<button class="chip${captureTaskRepeat===f?' active':''}" onclick="pickCaptureTaskRepeat(${f?`'${f}'`:'null'})">${l}</button>`).join('')}</div>`
       : `<button type="button" class="more-toggle" onclick="captureTaskMoreOpen=true;renderCaptureExtra()">+ Notes, estimate, time, or repeat</button>`}`;
@@ -2594,8 +2608,7 @@ function renderCaptureExtra(){
     // Saved as a finished task on the chosen day; time spent is optional.
     wrap.innerHTML = `
       ${captureDayRow()}
-      <div class="field-label">Time</div>
-      <input type="time" class="field-input" id="captureDidClock" value="${captureDidClock}" onchange="captureDidClock=this.value">
+      ${captureTimeField()}
       <div class="field-label">Project</div>
       <div class="chip-row">
         <button class="chip${!captureDidProjectId?' active':''}" onclick="setCaptureDidProject(null)">None</button>
@@ -2610,6 +2623,7 @@ function renderCaptureExtra(){
   } else if(captureType==='slip'){
     wrap.innerHTML = `
       ${captureDayRow()}
+      ${captureTimeField()}
       <div class="field-label">Which breaker?</div>
       <div class="chip-row">${breakers.map(b=>`<button class="chip${captureSlipBreakerId===b.id?' active':''}" onclick="setCaptureSlipBreaker('${b.id}')">${esc(b.name)}</button>`).join('')}</div>
       <div class="field-label">Approx duration in minutes (optional)</div>
@@ -2634,7 +2648,7 @@ function openCapture(){
   document.getElementById('captureText').value='';
   captureTaskBucket='backlog'; captureTaskDate=''; captureTaskProjectId=null; captureDidProjectId=null;
   captureTaskMoreOpen=false; captureTaskNotes=''; captureTaskEstimate=null; captureTaskTime=''; captureTaskRepeat=null; captureDidMinutes=null; captureDidTimeOpen=false; captureSlipMinutes=null;
-  captureDidClock=clockOf(new Date());
+  captureClock=clockOf(new Date());
   captureDay=today(); captureDayPick=false;
   captureHabitId = habits[0] ? habits[0].id : null;
   captureSlipBreakerId = breakers[0] ? breakers[0].id : null;
@@ -2647,7 +2661,7 @@ function openCaptureForSlip(breakerId){
   document.getElementById('captureText').value='';
   captureSlipBreakerId=breakerId;
   captureSlipMinutes=null;
-  captureDay=today(); captureDayPick=false;
+  captureDay=today(); captureDayPick=false; captureClock=clockOf(new Date());
   captureTypeLocked=true;
   setCaptureType('slip');
   openSheet('sheetCapture');
@@ -2658,6 +2672,8 @@ function saveCapture(){
   if(captureType==='task' && captureTaskBucket==='date' && !captureTaskDate){ showToast('Pick a date first'); return; }
   const now=new Date();
   const day = captureDay && captureDay<=today() ? captureDay : today();
+  const when=atClockOn(day, captureClock);
+  if((captureType==='did'||captureType==='slip') && when>now){ showToast("That time hasn't happened yet"); return; }
   const dayNote = day===today() ? '' : ' for '+(day===addDays(today(),-1)?'yesterday':fmtScheduleLabel(day));
   if(captureType==='task'){
     let scheduledDate = ['today','tomorrow','date'].includes(captureTaskBucket) ? captureTaskDate : null;
@@ -2665,15 +2681,13 @@ function saveCapture(){
     // A repeating task needs a first date; default to today.
     if(captureTaskRepeat && !scheduledDate){ scheduledDate=today(); soon=false; }
     const repeat = buildRepeat(captureTaskRepeat, scheduledDate);
-    tasks.unshift({ id:newTaskId(), title:text, projectId:captureTaskProjectId||null, notes:captureTaskNotes.trim(), completed:false, completedAt:null, scheduledDate, soon, estimateMin:captureTaskEstimate, time:captureTaskTime.trim(), repeat, createdAt:now.toISOString() });
+    tasks.unshift({ id:newTaskId(), title:text, projectId:captureTaskProjectId||null, notes:captureTaskNotes.trim(), completed:false, completedAt:null, scheduledDate, soon, estimateMin:captureTaskEstimate, time:clockToLabel(captureTaskTime), repeat, createdAt:now.toISOString() });
     showToast('Task added');
   } else if(captureType==='idea'){
     const at=now.toISOString();
     ideas.unshift({ id:'i'+Date.now()+Math.random().toString(36).slice(2,6), text, createdAt:at, updatedAt:at });
     showToast('Idea saved');
   } else if(captureType==='did'){
-    const when=atClockOn(day, captureDidClock);
-    if(when>now){ showToast("That time hasn't happened yet"); return; }
     const at=when.toISOString();
     const tk={ id:newTaskId(), title:text, projectId:captureDidProjectId||null, notes:'', completed:true, completedAt:at, scheduledDate:day, soon:false, estimateMin:null, time:'', createdAt:now.toISOString() };
     tasks.unshift(tk);
@@ -2684,7 +2698,7 @@ function saveCapture(){
     showToast('Habit marked done'+dayNote);
   } else if(captureType==='slip'){
     if(captureSlipBreakerId){
-      pushBreakerResult(captureSlipBreakerId, day, 'failure', momentOn(day).toISOString(), captureSlipMinutes, text);
+      pushBreakerResult(captureSlipBreakerId, day, 'failure', when.toISOString(), captureSlipMinutes, text);
       showToast('Failure logged'+dayNote);
     }
   }
