@@ -355,8 +355,11 @@ body.sheet-locked{ position:fixed; left:0; right:0; overflow:hidden; }
 .field-input:focus{ border-color:var(--accent); }
 textarea.field-input{ resize:none; min-height:64px; line-height:1.5; }
 /* iOS gives date inputs a wide intrinsic size and centered text; keep them inside the sheet */
-input[type="date"].field-input{ -webkit-appearance:none; appearance:none; display:block; min-width:0; max-width:100%; text-align:left; color-scheme:dark; min-height:46px; }
-input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
+input[type="date"].field-input, input[type="time"].field-input{ -webkit-appearance:none; appearance:none; display:block; min-width:0; max-width:100%; text-align:left; color-scheme:dark; min-height:46px; }
+input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].field-input::-webkit-date-and-time-value{ text-align:left; }
+.field-pair{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; }
+.field-pair .field-input{ padding-left:12px; padding-right:12px; }
+@media (max-width:360px){ .field-pair{ grid-template-columns:minmax(0,1fr); gap:0; } }
 .field-label{ font-size:12.5px; font-weight:600; color:var(--ink-dim); margin-bottom:8px; display:block; }
 .chip-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; }
 .chip{ font-size:13.5px; font-weight:500; padding:8px 14px; border:1px solid var(--line); border-radius:999px; color:var(--ink-dim); transition:all .15s; }
@@ -652,7 +655,10 @@ input[type="date"].field-input::-webkit-date-and-time-value{ text-align:left; }
       <input type="date" id="taskDateInput" class="field-input" style="display:none;" onchange="handleTaskDate(this.value)">
       <div id="taskDoneOnWrap" style="display:none;">
         <div class="field-label">Done on</div>
-        <input type="date" id="taskDoneOnInput" class="field-input" style="color-scheme:dark;">
+        <div class="field-pair">
+          <input type="date" id="taskDoneOnInput" class="field-input" style="color-scheme:dark;" aria-label="Day done">
+          <input type="time" id="taskDoneAtInput" class="field-input" aria-label="Time done">
+        </div>
       </div>
       <button type="button" class="more-toggle" id="taskMoreToggle" onclick="toggleTaskMore()">+ Notes, estimate, time, or repeat</button>
       <div id="taskMoreFields" style="display:none;">
@@ -1160,6 +1166,14 @@ function momentOn(iso, timeLabel){
   if(m!==9999) d.setHours(Math.floor(m/60), m%60, 0, 0);
   return d;
 }
+// A moment on a day at a clock time from a time input ("13:00"); falls back to momentOn.
+function atClockOn(iso, clock){
+  const m=/^(\d{1,2}):(\d{2})/.exec(clock||'');
+  if(!m) return momentOn(iso);
+  const d=new Date(iso+'T00:00:00'); d.setHours(+m[1], +m[2], 0, 0);
+  return d;
+}
+function clockOf(stamp){ const d=new Date(stamp); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function parseTimeLabelMinutes(label){
   if(!label) return 9999;
   const m = label.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
@@ -2275,6 +2289,7 @@ function openTaskSheet(taskId){
   if(tk && tk.completed) document.getElementById('taskDateInput').style.display='none';
   doneOn.max=today();
   doneOn.value = tk && tk.completed && tk.completedAt ? toISO(new Date(tk.completedAt)) : '';
+  document.getElementById('taskDoneAtInput').value = tk && tk.completed && tk.completedAt ? clockOf(tk.completedAt) : '';
   openSheet('sheetTask');
 }
 function saveTask(){
@@ -2293,10 +2308,14 @@ function saveTask(){
     const tk=tasks.find(t=>t.id===editTaskId);
     if(tk){
       tk.title=title; tk.projectId=selectedTaskProjectId||null; tk.scheduledDate=scheduledDate; tk.soon=soon; tk.notes=notes; tk.estimateMin=selectedTaskEstimate; tk.time=time; tk.repeat=repeat;
-      const doneOn=document.getElementById('taskDoneOnInput').value;
-      if(tk.completed && doneOn && doneOn<=today() && doneOn!==toISO(new Date(tk.completedAt))){
-        tk.completedAt=momentOn(doneOn, tk.time).toISOString();
-        if(tk.scheduledDate) tk.scheduledDate=doneOn;
+      const doneOn=document.getElementById('taskDoneOnInput').value, doneAt=document.getElementById('taskDoneAtInput').value;
+      if(tk.completed && doneOn && doneOn<=today()){
+        const dayChanged = doneOn!==toISO(new Date(tk.completedAt));
+        const timeChanged = doneAt && doneAt!==clockOf(tk.completedAt);
+        if(dayChanged || timeChanged){
+          tk.completedAt=(doneAt ? atClockOn(doneOn, doneAt) : momentOn(doneOn, tk.time)).toISOString();
+          if(tk.scheduledDate) tk.scheduledDate=doneOn;
+        }
       }
       // Keep its timeline entry in step with the edit.
       const entry=entries.find(e=>e.id==='et_'+tk.id);
@@ -2490,7 +2509,7 @@ function saveProject(){
 let captureTaskMoreOpen=false, captureTaskNotes='', captureTaskEstimate=null, captureTaskTime='', captureTaskRepeat=null;
 function pickCaptureTaskEstimate(min){ captureTaskEstimate = captureTaskEstimate===min ? null : min; renderCaptureExtra(); }
 function pickCaptureTaskRepeat(freq){ captureTaskRepeat=freq; renderCaptureExtra(); }
-let captureSlipBreakerId=null, captureHabitId=null, captureTaskProjectId=null, captureTaskDate='', captureDidProjectId=null, captureDidMinutes=null, captureDidTimeOpen=false, captureSlipMinutes=null;
+let captureSlipBreakerId=null, captureHabitId=null, captureTaskProjectId=null, captureTaskDate='', captureDidProjectId=null, captureDidMinutes=null, captureDidTimeOpen=false, captureDidClock='', captureSlipMinutes=null;
 // Day that Did it, Habit and Failure land on, so a forgotten day can be filled in.
 let captureDay='', captureDayPick=false;
 function setCaptureDay(iso, pick){ captureDay=iso||today(); captureDayPick=!!pick; renderCaptureExtra(); }
@@ -2575,6 +2594,8 @@ function renderCaptureExtra(){
     // Saved as a finished task on the chosen day; time spent is optional.
     wrap.innerHTML = `
       ${captureDayRow()}
+      <div class="field-label">Time</div>
+      <input type="time" class="field-input" id="captureDidClock" value="${captureDidClock}" onchange="captureDidClock=this.value">
       <div class="field-label">Project</div>
       <div class="chip-row">
         <button class="chip${!captureDidProjectId?' active':''}" onclick="setCaptureDidProject(null)">None</button>
@@ -2613,6 +2634,7 @@ function openCapture(){
   document.getElementById('captureText').value='';
   captureTaskBucket='backlog'; captureTaskDate=''; captureTaskProjectId=null; captureDidProjectId=null;
   captureTaskMoreOpen=false; captureTaskNotes=''; captureTaskEstimate=null; captureTaskTime=''; captureTaskRepeat=null; captureDidMinutes=null; captureDidTimeOpen=false; captureSlipMinutes=null;
+  captureDidClock=clockOf(new Date());
   captureDay=today(); captureDayPick=false;
   captureHabitId = habits[0] ? habits[0].id : null;
   captureSlipBreakerId = breakers[0] ? breakers[0].id : null;
@@ -2650,7 +2672,9 @@ function saveCapture(){
     ideas.unshift({ id:'i'+Date.now()+Math.random().toString(36).slice(2,6), text, createdAt:at, updatedAt:at });
     showToast('Idea saved');
   } else if(captureType==='did'){
-    const at=momentOn(day).toISOString();
+    const when=atClockOn(day, captureDidClock);
+    if(when>now){ showToast("That time hasn't happened yet"); return; }
+    const at=when.toISOString();
     const tk={ id:newTaskId(), title:text, projectId:captureDidProjectId||null, notes:'', completed:true, completedAt:at, scheduledDate:day, soon:false, estimateMin:null, time:'', createdAt:now.toISOString() };
     tasks.unshift(tk);
     upsertEntry({ id:'et_'+tk.id, type:'task', sourceId:tk.id, title:text, subtitle:'', projectId:tk.projectId, date:day, start:at, end:null, durationMin:captureDidMinutes>0?captureDidMinutes:null, createdAt:tk.createdAt });
