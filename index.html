@@ -562,6 +562,20 @@ input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].
         <div class="lib-label">Unscheduled tasks</div>
         <div id="libUnscheduledList" class="card"></div>
       </div>
+      <div class="lib-group">
+        <div class="lib-label">Backup</div>
+        <div class="card">
+          <div class="lib-row" role="button" tabindex="0" onclick="exportData()">
+            <div class="lib-row-main"><span class="lib-row-title">Export data</span></div>
+            <div class="lib-row-meta" style="padding-left:0;">Save everything to one file, to keep or move to another phone.</div>
+          </div>
+          <div class="lib-row" role="button" tabindex="0" onclick="document.getElementById('importFile').click()">
+            <div class="lib-row-main"><span class="lib-row-title">Import data</span></div>
+            <div class="lib-row-meta" style="padding-left:0;">Load a Focus export file. Replaces what’s on this phone.</div>
+          </div>
+        </div>
+        <input type="file" id="importFile" style="display:none;" onchange="importFilePicked(this)">
+      </div>
     </div>
   </section>
 
@@ -857,6 +871,23 @@ input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].
     <div class="sheet-actions">
       <button class="btn-cancel" onclick="closeSheet('sheetIdea')">Cancel</button>
       <button class="btn-save" onclick="saveIdeaEdit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     SHEET: IMPORT
+════════════════════════════════ -->
+<div class="sheet-overlay" id="sheetImport" onclick="sheetOverlayClick(event,'sheetImport')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Import data</div>
+    <div class="sheet-body">
+      <div class="empty-line" id="importSummary"></div>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeSheet('sheetImport')">Cancel</button>
+      <button class="btn-save" onclick="importConfirmed()">Replace my data</button>
     </div>
   </div>
 </div>
@@ -3013,6 +3044,69 @@ function renderView(v){
   else if(v==='ideas') renderIdeas();
   else if(v==='review') renderReview();
 }
+// ═══ SECTION: BACKUP (export / import) ═══
+// Every focus2_* key goes into one JSON file. Import wipes this phone's focus2_* keys,
+// writes the file's, then reloads so all state is read fresh.
+const BACKUP_PREFIX='focus2_';
+function backupKeys(){
+  const ks=[];
+  for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.startsWith(BACKUP_PREFIX)) ks.push(k); }
+  return ks.sort();
+}
+async function exportData(){
+  saveAll();
+  const data={};
+  backupKeys().forEach(k=>{ try{ data[k]=JSON.parse(localStorage.getItem(k)); }catch{} });
+  const json=JSON.stringify({ app:'focus', version:1, exportedAt:new Date().toISOString(), data }, null, 1);
+  const name='focus-backup-'+today()+'.json';
+  let file=null;
+  try{ file=new File([json], name, { type:'application/json' }); }catch{}
+  // Phones: the share sheet (AirDrop, Save to Files, Messages…). Elsewhere: a normal download.
+  if(file && navigator.canShare && navigator.canShare({ files:[file] })){
+    try{ await navigator.share({ files:[file], title:name }); showToast('Export ready'); return; }
+    catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  const url=URL.createObjectURL(new Blob([json], { type:'application/json' }));
+  const a=document.createElement('a'); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 10000);
+  showToast('Saved '+name);
+}
+let pendingImport=null;
+function importFilePicked(input){
+  const f=input.files && input.files[0]; input.value='';
+  if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    let obj=null;
+    try{ obj=JSON.parse(r.result); }catch{}
+    const data=obj && obj.app==='focus' && obj.data && typeof obj.data==='object' ? obj.data : null;
+    const keys=data ? Object.keys(data).filter(k=>k.startsWith(BACKUP_PREFIX)) : [];
+    if(!keys.length){ showToast('That file isn’t a Focus export'); return; }
+    pendingImport={ data, keys };
+    const n=k=>Array.isArray(data[k]) ? data[k].length : 0;
+    const parts=[[n('focus2_tasks'),'task'],[n('focus2_projects'),'project'],[n('focus2_habits'),'habit'],[n('focus2_breakers'),'breaker'],[n('focus2_ideas'),'idea'],[n('focus2_entries'),'time entry','time entries']]
+      .filter(([c])=>c).map(([c,one,many])=>c+' '+(c===1?one:(many||one+'s')));
+    const when=obj.exportedAt ? new Date(obj.exportedAt) : null;
+    const whenStr=when && !isNaN(when) ? ' from '+when.toLocaleDateString(undefined,{ month:'short', day:'numeric', year:'numeric' }) : '';
+    document.getElementById('importSummary').textContent=
+      'This export'+whenStr+' has '+(parts.length?parts.join(', '):'no tasks or projects')+'. Importing replaces everything currently on this phone.';
+    openSheet('sheetImport');
+  };
+  r.onerror=()=>showToast('Couldn’t read that file');
+  r.readAsText(f);
+}
+function importConfirmed(){
+  if(!pendingImport) return;
+  const { data, keys }=pendingImport;
+  try{
+    backupKeys().forEach(k=>localStorage.removeItem(k));
+    keys.forEach(k=>localStorage.setItem(k, JSON.stringify(data[k])));
+  }catch{ showToast('Import failed: not enough storage'); return; }
+  pendingImport=null;
+  location.reload();
+}
+
 let _toastTimer;
 function showToast(msg,undoFn){
   const el=document.getElementById('toast');
@@ -3031,7 +3125,7 @@ function showToast(msg,undoFn){
 }
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
-    ['sheetTask','sheetHabit','sheetBreaker','sheetProject','sheetPlanTomorrow','sheetCapture','sheetTaskDetail','sheetHabitDetail','sheetBreakerDetail','sheetDay','sheetIdea'].forEach(closeSheet);
+    ['sheetTask','sheetHabit','sheetBreaker','sheetProject','sheetPlanTomorrow','sheetCapture','sheetTaskDetail','sheetHabitDetail','sheetBreakerDetail','sheetDay','sheetIdea','sheetImport'].forEach(closeSheet);
   }
   if((e.key==='Enter'||e.key===' ') && e.target.matches('[role="button"]')){
     e.preventDefault();
