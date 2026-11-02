@@ -401,6 +401,25 @@ input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].
 .idea-row:last-child{ border-bottom:none; }
 .idea-text{ font-size:15px; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
 .idea-time{ margin-top:3px; font-size:12.5px; color:var(--ink-faint); }
+/* Journal */
+.journal-card{ margin-top:8px; }
+.journal-entry{ padding:11px 14px; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .15s; }
+.journal-entry:last-child{ border-bottom:none; }
+.journal-date{ font-size:12.5px; color:var(--ink-faint); margin-bottom:6px; }
+.journal-q{ font-size:12px; font-weight:600; color:var(--ink-dim); margin-top:8px; }
+.journal-q:first-child{ margin-top:0; }
+.journal-a{ font-size:15px; line-height:1.45; margin-top:1px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.journal-list{ list-style:none; margin:1px 0 0; padding:0; }
+.journal-list li{ position:relative; padding-left:14px; font-size:15px; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
+.journal-list li + li{ margin-top:2px; }
+.journal-list li::before{ content:''; position:absolute; left:2px; top:.62em; width:5px; height:5px; border-radius:50%; background:var(--ink-faint); }
+.journal-entry.compact .journal-list li{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.journal-empty-title{ font-size:15px; }
+.journal-empty-sub{ font-size:13px; color:var(--ink-faint); margin-top:3px; }
+.journal-group{ margin-bottom:16px; }
+.journal-group .field-input{ margin-bottom:6px; }
+textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-top:11px; padding-bottom:11px; }
+.journal-saved{ font-size:12.5px; color:var(--ink-faint); margin-top:-6px; min-height:16px; }
 .lib-row-preview{ padding-left:17px; margin-top:4px; font-size:13px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .lib-archived-toggle{ font-size:13px; color:var(--ink-faint); padding:12px 16px; cursor:pointer; }
 .lib-row.archived{ opacity:.6; }
@@ -434,7 +453,7 @@ input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].
   .day-edit:hover{ color:var(--ink); }
   .plan-action:hover{ background:rgba(255,138,61,0.24); }
   .lib-add:hover{ color:var(--ink); }
-  .lib-row:hover, .idea-row:hover{ background:var(--bg-hover); }
+  .lib-row:hover, .idea-row:hover, .journal-entry:hover{ background:var(--bg-hover); }
   .text-btn:hover{ color:var(--ink); }
   .proj-stat:hover{ color:var(--ink-dim); }
   .chip:hover{ border-color:var(--ink-faint); color:var(--ink); }
@@ -485,6 +504,11 @@ input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].
       <div class="now-section">
         <div class="now-label">Breakers</div>
         <div id="nowBreakersList" class="card"></div>
+      </div>
+
+      <div class="now-section" id="nowJournalSection" style="display:none;">
+        <div class="now-label">Journal</div>
+        <div id="nowJournal" class="card"></div>
       </div>
 
       <div class="now-section">
@@ -551,6 +575,10 @@ input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].
         <div id="libIdeasRow" class="card"></div>
       </div>
       <div class="lib-group">
+        <div class="lib-label">Journal <span class="lib-add" onclick="openJournal(today())">+ Today</span></div>
+        <div id="libJournalRow" class="card"></div>
+      </div>
+      <div class="lib-group">
         <div class="lib-label">Habits <span class="lib-add" onclick="openNewHabit()">+ New</span></div>
         <div id="libHabitsList" class="card"></div>
       </div>
@@ -612,6 +640,20 @@ input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].
         <button class="quick-add-btn" onclick="addIdea()" aria-label="Add idea">+</button>
       </div>
       <div id="ideasList" class="card" style="margin-top:14px;"></div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════
+       JOURNAL (one entry per day)
+  ════════════════════════════════ -->
+  <section class="view" id="view-journal">
+    <div class="detail-head">
+      <button class="text-btn" onclick="goBack()">‹ Library</button>
+      <h1 class="view-title">Journal</h1>
+    </div>
+    <div class="view-scroll">
+      <div id="journalToday" class="card" style="margin-top:14px;"></div>
+      <div id="journalList" class="card" style="margin-top:14px;"></div>
     </div>
   </section>
 
@@ -876,6 +918,24 @@ input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].
 </div>
 
 <!-- ════════════════════════════════
+     SHEET: JOURNAL (one day's entry, saves as you type)
+════════════════════════════════ -->
+<div class="sheet-overlay" id="sheetJournal" onclick="sheetOverlayClick(event,'sheetJournal')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="journalSheetTitle"></div>
+    <div class="sheet-body">
+      <div id="journalFields"></div>
+      <div class="journal-saved" id="journalSaved"></div>
+    </div>
+    <button class="btn-danger" id="journalClearBtn" onclick="clearJournalDay()">Clear this day</button>
+    <div class="sheet-actions">
+      <button class="btn-save" style="flex:1;" onclick="closeSheet('sheetJournal')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
      SHEET: IMPORT
 ════════════════════════════════ -->
 <div class="sheet-overlay" id="sheetImport" onclick="sheetOverlayClick(event,'sheetImport')">
@@ -953,6 +1013,9 @@ let breakerResults = ld('focus2_breakerResults', []);
 let entries     = ld('focus2_entries', []);
 // Quick notes kept apart from tasks: { id, text, createdAt, updatedAt }, newest first.
 let ideas       = ld('focus2_ideas', []);
+// One entry per day: { 'YYYY-MM-DD': { items:[{ id, prompt, text }], createdAt, updatedAt } }.
+// Each answer keeps its prompt's wording, so changing the prompts later never loses old answers.
+let journal     = ld('focus2_journal', {});
 // Custom order for a day's task list: { 'YYYY-MM-DD': [taskId, …] }. Past days are dropped on load.
 let dayOrder    = ld('focus2_dayOrder', {});
 Object.keys(dayOrder).forEach(d=>{ if(d<toISO(new Date())) delete dayOrder[d]; });
@@ -996,6 +1059,7 @@ function saveAll(){
   sv('focus2_breakerResults', breakerResults);
   sv('focus2_entries', entries);
   sv('focus2_ideas', ideas);
+  sv('focus2_journal', journal);
   sv('focus2_dayOrder', dayOrder);
 }
 
@@ -1280,6 +1344,7 @@ function renderNow(){
   renderTodayTasks();
   renderTodayHabits();
   renderTodayBreakers();
+  renderNowJournal();
   renderMiniTimeline();
 }
 function renderTodayTasks(){
@@ -1707,6 +1772,12 @@ function makeDayBlock(dateIso, dayEntries){
     <div class="day-summary">${s.tasksCompleted} task${s.tasksCompleted!==1?'s':''} completed${s.habitsTotal?' · Habits '+s.habitsDone+'/'+s.habitsTotal:''}</div>`;
   const entriesWrap = wrap.querySelector('.day-entries');
   dayEntries.forEach(e=>entriesWrap.appendChild(makeEntryRow(e)));
+  if(!dayEntries.length) entriesWrap.style.display='none';
+  if(journalHasText(dateIso)){
+    const jc=document.createElement('div'); jc.className='card'+(dayEntries.length?' journal-card':'');
+    jc.appendChild(makeJournalEntry(dateIso,{ compact:true }));
+    wrap.insertBefore(jc, wrap.querySelector('.day-summary'));
+  }
   return wrap;
 }
 function renderTimeline(){
@@ -1714,12 +1785,13 @@ function renderTimeline(){
   body.innerHTML='';
   document.getElementById('timelineJumpInput').max=today();
   const q=(document.getElementById('timelineSearch')?.value||'').trim().toLowerCase();
-  const dates=[...new Set(entries.map(e=>e.date))].sort((a,b)=>b.localeCompare(a));
+  const dates=[...new Set([...entries.map(e=>e.date), ...Object.keys(journal).filter(journalHasText)])].sort((a,b)=>b.localeCompare(a));
   let any=false;
   dates.forEach(d=>{
     let dayEntries = entries.filter(e=>e.date===d).sort((a,b)=>new Date(a.start)-new Date(b.start));
     if(q) dayEntries = dayEntries.filter(e=>(e.title+' '+(e.subtitle||'')).toLowerCase().includes(q));
-    if(!dayEntries.length) return;
+    const journalMatch = journalHasText(d) && (!q || journalItems(d).some(it=>it.list.some(x=>x.toLowerCase().includes(q))));
+    if(!dayEntries.length && !journalMatch) return;
     any=true;
     body.appendChild(makeDayBlock(d,dayEntries));
   });
@@ -1807,7 +1879,11 @@ function renderDayEditor(){
     </div>
     ${habits.length?`<div class="field-label">Habits</div>${card(habitRows,'No habits scheduled this day.')}`:''}
     ${breakers.length?`<div class="field-label">Breakers</div>${card(breakerRows,'')}`:''}
-    ${sessionRows.length?`<div class="field-label">Logged</div>${card(sessionRows,'')}`:''}`;
+    ${sessionRows.length?`<div class="field-label">Logged</div>${card(sessionRows,'')}`:''}
+    <div class="field-label">Journal</div>
+    <div class="card" id="dayEditJournal"></div>`;
+  const jc=document.getElementById('dayEditJournal');
+  jc.appendChild(makeJournalEntry(iso,{ compact:true, fromDay:true }));
 }
 function refreshDay(){ saveAll(); renderDayEditor(); renderCurrentView(); }
 function dayToggleTask(id){
@@ -1996,6 +2072,15 @@ function renderLibrary(){
     <div class="lib-row-preview">${ideas.length?esc(ideas[0].text.split('\n')[0]):'Shower thoughts, brainstorms, anything that isn’t a task.'}</div>`;
   ir.onclick=()=>openIdeas();
   ideaRow.appendChild(ir);
+  const jRow=document.getElementById('libJournalRow'); jRow.innerHTML='';
+  const jDays=journalDays(), jr=document.createElement('div');
+  jr.className='lib-row'; jr.setAttribute('role','button'); jr.setAttribute('tabindex','0');
+  const jStreak=journalStreak();
+  jr.innerHTML=`
+    <div class="lib-row-main"><span class="dot-tag" style="background:var(--ink-faint)"></span><span class="lib-row-title">${jDays.length} day${jDays.length!==1?'s':''} written</span></div>
+    <div class="lib-row-preview">${jDays.length ? (journalHasText(today())?'Written today':'Not written today')+(jStreak>1?' · '+jStreak+' day streak':'') : 'A few lines each night on how the day went.'}</div>`;
+  jr.onclick=()=>openJournalView();
+  jRow.appendChild(jr);
   const projList=document.getElementById('libProjectsList'); projList.innerHTML='';
   activeProjects().forEach(p=>projList.appendChild(makeProjectLibRow(p)));
   if(!activeProjects().length) projList.innerHTML='<div class="empty-line">No projects yet.</div>';
@@ -2096,6 +2181,142 @@ function ideaToTask(){
   document.getElementById('taskMoreToggle').style.display='none';
   notesEl.style.height=Math.min(notesEl.scrollHeight+2, 240)+'px';
   setTimeout(()=>document.getElementById('taskTitle').focus(),300);
+}
+
+// ═══ SECTION: JOURNAL ═══
+// The nightly prompts. Kept as a list so you can add your own later.
+const JOURNAL_PROMPTS=[
+  { id:'good',   prompt:'What went well',  placeholder:'Wins, good moments, anything you’re glad about' },
+  { id:'bad',    prompt:'What bugged me',  placeholder:'What didn’t go right or got under your skin' },
+  { id:'keep',   prompt:'Keep doing',      placeholder:'What’s working that you want to stick with' },
+  { id:'change', prompt:'Change tomorrow', placeholder:'One thing to do differently' },
+];
+function journalPrompts(){ return JOURNAL_PROMPTS; }
+// Each prompt holds a list of separate answers. Older single-box answers (`text`) read as one item.
+function journalItemList(it){ return (Array.isArray(it.list) ? it.list : (it.text ? [it.text] : [])).map(x=>String(x).trim()).filter(Boolean); }
+function journalItems(iso){ const j=journal[iso]; return j ? j.items.map(it=>({ id:it.id, prompt:it.prompt, list:journalItemList(it) })).filter(it=>it.list.length) : []; }
+function journalHasText(iso){ return journalItems(iso).length>0; }
+function journalDays(){ return Object.keys(journal).filter(journalHasText).sort((a,b)=>b.localeCompare(a)); }
+// Days in a row with an entry, counting back from today (or yesterday, if today isn't written yet).
+function journalStreak(){
+  let d=today(), n=0;
+  if(!journalHasText(d)) d=addDays(d,-1);
+  while(journalHasText(d)){ n++; d=addDays(d,-1); }
+  return n;
+}
+function fmtJournalDate(iso){
+  if(iso===today()) return 'Today';
+  if(iso===addDays(today(),-1)) return 'Yesterday';
+  const d=new Date(iso+'T12:00:00'), opts={ weekday:'long', month:'short', day:'numeric' };
+  if(d.getFullYear()!==new Date().getFullYear()) opts.year='numeric';
+  return d.toLocaleDateString('en-US',opts);
+}
+// One day's entry as a tappable row; an empty day shows an invitation instead.
+function makeJournalEntry(iso, opt={}){
+  const el=document.createElement('div');
+  el.className='journal-entry'+(opt.compact?' compact':''); el.setAttribute('role','button'); el.setAttribute('tabindex','0');
+  const items=journalItems(iso);
+  if(items.length){
+    el.innerHTML=(opt.showDate?`<div class="journal-date">${fmtJournalDate(iso)}</div>`:'')
+      + items.map(it=>`<div class="journal-q">${esc(it.prompt)}</div><ul class="journal-list">${it.list.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`).join('');
+  } else {
+    el.innerHTML=`<div class="journal-empty-title">${iso===today()?(new Date().getHours()>=17?'How did today go?':'Write in today’s journal'):'Write about this day'}</div><div class="journal-empty-sub">${journalPrompts().map(p=>p.prompt).join(' · ')}</div>`;
+  }
+  el.onclick=()=>openJournal(iso, opt.fromDay);
+  return el;
+}
+function renderNowJournal(){
+  const t=today(), sec=document.getElementById('nowJournalSection');
+  sec.style.display='';
+  const c=document.getElementById('nowJournal'); c.innerHTML='';
+  c.appendChild(makeJournalEntry(t,{ compact:true }));
+}
+function openJournalView(){ switchView('journal'); }
+function renderJournal(){
+  const t=today();
+  const top=document.getElementById('journalToday'); top.innerHTML='';
+  top.appendChild(makeJournalEntry(t,{ showDate:true }));
+  const list=document.getElementById('journalList'); list.innerHTML='';
+  const days=journalDays().filter(d=>d!==t);
+  if(!days.length){ list.innerHTML='<div class="empty-line">Past days show up here. You can also write about any day from its Edit sheet in Timeline.</div>'; return; }
+  days.forEach(d=>list.appendChild(makeJournalEntry(d,{ showDate:true, compact:true })));
+}
+let journalDate=null;
+let journalReturnToDay=false;
+function openJournal(iso, fromDay){
+  journalDate=iso;
+  journalReturnToDay=!!fromDay;
+  if(fromDay) closeSheet('sheetDay');
+  document.getElementById('journalSheetTitle').textContent = iso===today() ? 'Today' : new Date(iso+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  const have=(journal[iso]&&journal[iso].items)||[];
+  // Today's prompts first, then any old answer whose prompt has since been removed.
+  const listOf=id=>{ const it=have.find(x=>x.id===id); return it ? journalItemList(it) : []; };
+  const fields=journalPrompts().map(p=>({ id:p.id, prompt:p.prompt, placeholder:p.placeholder, list:listOf(p.id) }));
+  have.forEach(it=>{ if(!fields.some(f=>f.id===it.id) && journalItemList(it).length) fields.push({ id:it.id, prompt:it.prompt, placeholder:'', list:journalItemList(it) }); });
+  const wrap=document.getElementById('journalFields');
+  // One box per thing; there's always an empty box at the end of each prompt for the next one.
+  wrap.innerHTML=fields.map(f=>`<div class="journal-group" data-id="${esc(f.id)}" data-prompt="${esc(f.prompt)}" data-placeholder="${esc(f.placeholder)}">
+    <div class="field-label">${esc(f.prompt)}</div>
+    ${[...f.list,''].map((x,i)=>journalBoxHtml(x, i===0?f.placeholder:'Another one')).join('')}
+  </div>`).join('');
+  document.getElementById('journalSaved').textContent = journal[iso] ? 'Saves as you type' : '';
+  document.getElementById('journalClearBtn').style.display = journalHasText(iso) ? '' : 'none';
+  openSheet('sheetJournal');
+  requestAnimationFrame(()=>wrap.querySelectorAll('textarea').forEach(growJournalField));
+}
+function journalBoxHtml(text, placeholder){
+  return `<textarea class="field-input journal-field" rows="1" placeholder="${esc(placeholder)}" oninput="journalBoxInput(this)" onkeydown="journalBoxKey(event,this)">${esc(text)}</textarea>`;
+}
+function growJournalField(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight+2, 200)+'px'; }
+function journalAddBox(group, focus){
+  group.insertAdjacentHTML('beforeend', journalBoxHtml('', 'Another one'));
+  const box=group.lastElementChild;
+  if(focus) box.focus();
+  return box;
+}
+function journalBoxInput(el){
+  growJournalField(el);
+  const group=el.closest('.journal-group');
+  // Typing in the last box opens a fresh one under it.
+  if(el.value.trim() && el===group.lastElementChild) journalAddBox(group, false);
+  journalInput();
+}
+// Enter moves to the next box (making one if needed); Backspace in an empty box removes it.
+function journalBoxKey(e, el){
+  const group=el.closest('.journal-group');
+  if(e.key==='Enter' && !e.shiftKey){
+    e.preventDefault();
+    if(!el.value.trim()) return;
+    const next=el.nextElementSibling && el.nextElementSibling.tagName==='TEXTAREA' ? el.nextElementSibling : journalAddBox(group, false);
+    next.focus();
+  } else if(e.key==='Backspace' && !el.value){
+    const boxes=[...group.querySelectorAll('textarea')];
+    if(boxes.length<2) return;
+    e.preventDefault();
+    const i=boxes.indexOf(el), to=boxes[i-1]||boxes[i+1];
+    el.remove();
+    if(group.lastElementChild.value.trim()) journalAddBox(group, false);   // keep an empty box at the end
+    if(to){ to.focus(); const n=to.value.length; to.setSelectionRange(n,n); }
+    journalInput();
+  }
+}
+function journalInput(){
+  const iso=journalDate; if(!iso) return;
+  const items=[...document.querySelectorAll('#journalFields .journal-group')].map(g=>({ id:g.dataset.id, prompt:g.dataset.prompt,
+    list:[...g.querySelectorAll('textarea')].map(t=>t.value.trim()).filter(Boolean) }));
+  const now=new Date().toISOString();
+  if(items.some(it=>it.list.length)){
+    journal[iso]={ items, createdAt:(journal[iso]&&journal[iso].createdAt)||now, updatedAt:now };
+  } else delete journal[iso];
+  saveAll();
+  document.getElementById('journalSaved').textContent='Saved';
+  document.getElementById('journalClearBtn').style.display = journalHasText(iso) ? '' : 'none';
+}
+function clearJournalDay(){
+  const iso=journalDate, gone=journal[iso]; if(!gone) return;
+  delete journal[iso]; saveAll();
+  closeSheet('sheetJournal'); renderCurrentView();
+  showToast('Journal cleared', ()=>{ journal[iso]=gone; saveAll(); renderCurrentView(); if(document.getElementById('sheetDay').classList.contains('open')) renderDayEditor(); });
 }
 
 // ═══ SECTION: PROJECT DETAIL ═══
@@ -2733,6 +2954,10 @@ function closeSheet(id){
   if(id==='sheetHabit') editHabitId=null;
   if(id==='sheetBreaker') editBreakerId=null;
   if(id==='sheetTask' && wasOpen && dayEditReturn){ dayEditReturn=false; renderDayEditor(); openSheet('sheetDay'); }
+  if(id==='sheetJournal' && wasOpen){
+    journalDate=null; renderCurrentView();
+    if(journalReturnToDay){ journalReturnToDay=false; renderDayEditor(); openSheet('sheetDay'); }
+  }
   lockPageScroll();
 }
 // iOS scrolls the page behind a fixed overlay unless the page itself is pinned,
@@ -2942,6 +3167,19 @@ function renderReview(){
       <div class="review-meter"><div class="review-meter-fill" style="width:${pct}%;background:var(--habit-mark)"></div></div></div>`;
   }).join('') : '<div class="empty-line">No habits were scheduled in this period.</div>');
 
+  // Journal: what you wrote you'd change, and what went well, across the period.
+  const jDays=daysBetween(start, end<t?end:t).filter(journalHasText);
+  if(jDays.length){
+    const pick=id=>jDays.flatMap(d=>{ const it=journalItems(d).find(x=>x.id===id); return it ? it.list.map(text=>({ d, text })) : []; });
+    const rows=list=>list.map(r=>`<div class="journal-entry" role="button" tabindex="0" onclick="openJournal('${r.d}')"><div class="journal-a">${esc(r.text)}</div><div class="idea-time">${fmtJournalDate(r.d)}</div></div>`).join('');
+    const counted=daysBetween(start, end<t?end:t).length;
+    section('Journal', `<div class="review-row"><div class="review-row-top"><span class="review-row-name">Days written</span><span class="review-row-value">${jDays.length}/${counted}</span></div>
+      <div class="review-meter"><div class="review-meter-fill" style="width:${Math.round(jDays.length/counted*100)}%;background:var(--ink-dim)"></div></div></div>`);
+    const ch=pick('change'), gd=pick('good');
+    if(ch.length) section('You wanted to change', rows(ch));
+    if(gd.length) section('What went well', rows(gd));
+  }
+
   // Breakers
   if(breakers.length) section('Breakers', s.breakerRows.length ? s.breakerRows.map(r=>
     `<div class="review-row"><div class="review-row-top"><span class="review-row-name">${esc(r.b.name)}</span><span class="review-row-value">${r.slips} slip${r.slips!==1?'s':''}</span></div>
@@ -2949,11 +3187,11 @@ function renderReview(){
 }
 
 // ═══ SECTION: NAV / TOAST / KEYBOARD ═══
-const VIEWS=['now','timeline','plan','library','project-detail','ideas','review'];
+const VIEWS=['now','timeline','plan','library','project-detail','ideas','journal','review'];
 const NAV_VIEWS=['now','timeline','plan','library'];
 // Sub-views and the tab they go back to. Entering one pushes a history entry,
 // so the phone's own back gesture/button returns to the tab as well.
-const SUB_VIEWS={ 'project-detail':'library', ideas:'library', review:'timeline' };
+const SUB_VIEWS={ 'project-detail':'library', ideas:'library', journal:'library', review:'timeline' };
 let ignoreNextPop=false;
 function switchView(v, fromHistory){
   if(!fromHistory){
@@ -3042,6 +3280,7 @@ function renderView(v){
   else if(v==='library') renderLibrary();
   else if(v==='project-detail') renderProjectDetail();
   else if(v==='ideas') renderIdeas();
+  else if(v==='journal') renderJournal();
   else if(v==='review') renderReview();
 }
 // ═══ SECTION: BACKUP (export / import) ═══
@@ -3086,6 +3325,7 @@ function importFilePicked(input){
     pendingImport={ data, keys };
     const n=k=>Array.isArray(data[k]) ? data[k].length : 0;
     const parts=[[n('focus2_tasks'),'task'],[n('focus2_projects'),'project'],[n('focus2_habits'),'habit'],[n('focus2_breakers'),'breaker'],[n('focus2_ideas'),'idea'],[n('focus2_entries'),'time entry','time entries']]
+      .concat([[data.focus2_journal && typeof data.focus2_journal==='object' ? Object.keys(data.focus2_journal).length : 0,'journal day']])
       .filter(([c])=>c).map(([c,one,many])=>c+' '+(c===1?one:(many||one+'s')));
     const when=obj.exportedAt ? new Date(obj.exportedAt) : null;
     const whenStr=when && !isNaN(when) ? ' from '+when.toLocaleDateString(undefined,{ month:'short', day:'numeric', year:'numeric' }) : '';
@@ -3125,7 +3365,7 @@ function showToast(msg,undoFn){
 }
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
-    ['sheetTask','sheetHabit','sheetBreaker','sheetProject','sheetPlanTomorrow','sheetCapture','sheetTaskDetail','sheetHabitDetail','sheetBreakerDetail','sheetDay','sheetIdea','sheetImport'].forEach(closeSheet);
+    ['sheetTask','sheetHabit','sheetBreaker','sheetProject','sheetPlanTomorrow','sheetCapture','sheetTaskDetail','sheetHabitDetail','sheetBreakerDetail','sheetDay','sheetIdea','sheetImport','sheetJournal'].forEach(closeSheet);
   }
   if((e.key==='Enter'||e.key===' ') && e.target.matches('[role="button"]')){
     e.preventDefault();
