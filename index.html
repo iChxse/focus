@@ -409,10 +409,16 @@ input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].
 .journal-q{ font-size:12px; font-weight:600; color:var(--ink-dim); margin-top:8px; }
 .journal-q:first-child{ margin-top:0; }
 .journal-a{ font-size:15px; line-height:1.45; margin-top:1px; white-space:pre-wrap; overflow-wrap:anywhere; }
-.journal-entry.compact .journal-a{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.journal-list{ list-style:none; margin:1px 0 0; padding:0; }
+.journal-list li{ position:relative; padding-left:14px; font-size:15px; line-height:1.45; white-space:pre-wrap; overflow-wrap:anywhere; }
+.journal-list li + li{ margin-top:2px; }
+.journal-list li::before{ content:''; position:absolute; left:2px; top:.62em; width:5px; height:5px; border-radius:50%; background:var(--ink-faint); }
+.journal-entry.compact .journal-list li{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .journal-empty-title{ font-size:15px; }
 .journal-empty-sub{ font-size:13px; color:var(--ink-faint); margin-top:3px; }
-.journal-field{ min-height:56px; max-height:240px; }
+.journal-group{ margin-bottom:16px; }
+.journal-group .field-input{ margin-bottom:6px; }
+textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-top:11px; padding-bottom:11px; }
 .journal-saved{ font-size:12.5px; color:var(--ink-faint); margin-top:-6px; min-height:16px; }
 .lib-row-preview{ padding-left:17px; margin-top:4px; font-size:13px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .lib-archived-toggle{ font-size:13px; color:var(--ink-faint); padding:12px 16px; cursor:pointer; }
@@ -1784,7 +1790,7 @@ function renderTimeline(){
   dates.forEach(d=>{
     let dayEntries = entries.filter(e=>e.date===d).sort((a,b)=>new Date(a.start)-new Date(b.start));
     if(q) dayEntries = dayEntries.filter(e=>(e.title+' '+(e.subtitle||'')).toLowerCase().includes(q));
-    const journalMatch = journalHasText(d) && (!q || journalItems(d).some(it=>it.text.toLowerCase().includes(q)));
+    const journalMatch = journalHasText(d) && (!q || journalItems(d).some(it=>it.list.some(x=>x.toLowerCase().includes(q))));
     if(!dayEntries.length && !journalMatch) return;
     any=true;
     body.appendChild(makeDayBlock(d,dayEntries));
@@ -2186,7 +2192,9 @@ const JOURNAL_PROMPTS=[
   { id:'change', prompt:'Change tomorrow', placeholder:'One thing to do differently' },
 ];
 function journalPrompts(){ return JOURNAL_PROMPTS; }
-function journalItems(iso){ const j=journal[iso]; return j ? j.items.filter(it=>it.text.trim()) : []; }
+// Each prompt holds a list of separate answers. Older single-box answers (`text`) read as one item.
+function journalItemList(it){ return (Array.isArray(it.list) ? it.list : (it.text ? [it.text] : [])).map(x=>String(x).trim()).filter(Boolean); }
+function journalItems(iso){ const j=journal[iso]; return j ? j.items.map(it=>({ id:it.id, prompt:it.prompt, list:journalItemList(it) })).filter(it=>it.list.length) : []; }
 function journalHasText(iso){ return journalItems(iso).length>0; }
 function journalDays(){ return Object.keys(journal).filter(journalHasText).sort((a,b)=>b.localeCompare(a)); }
 // Days in a row with an entry, counting back from today (or yesterday, if today isn't written yet).
@@ -2210,19 +2218,16 @@ function makeJournalEntry(iso, opt={}){
   const items=journalItems(iso);
   if(items.length){
     el.innerHTML=(opt.showDate?`<div class="journal-date">${fmtJournalDate(iso)}</div>`:'')
-      + items.map(it=>`<div class="journal-q">${esc(it.prompt)}</div><div class="journal-a">${esc(it.text.trim())}</div>`).join('');
+      + items.map(it=>`<div class="journal-q">${esc(it.prompt)}</div><ul class="journal-list">${it.list.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`).join('');
   } else {
-    el.innerHTML=`<div class="journal-empty-title">${iso===today()?'How did today go?':'Write about this day'}</div><div class="journal-empty-sub">${journalPrompts().map(p=>p.prompt).join(' · ')}</div>`;
+    el.innerHTML=`<div class="journal-empty-title">${iso===today()?(new Date().getHours()>=17?'How did today go?':'Write in today’s journal'):'Write about this day'}</div><div class="journal-empty-sub">${journalPrompts().map(p=>p.prompt).join(' · ')}</div>`;
   }
   el.onclick=()=>openJournal(iso, opt.fromDay);
   return el;
 }
 function renderNowJournal(){
   const t=today(), sec=document.getElementById('nowJournalSection');
-  // Shows up in the evening, or any time once today has an entry.
-  const show = new Date().getHours()>=17 || journalHasText(t);
-  sec.style.display = show ? '' : 'none';
-  if(!show) return;
+  sec.style.display='';
   const c=document.getElementById('nowJournal'); c.innerHTML='';
   c.appendChild(makeJournalEntry(t,{ compact:true }));
 }
@@ -2245,22 +2250,62 @@ function openJournal(iso, fromDay){
   document.getElementById('journalSheetTitle').textContent = iso===today() ? 'Today' : new Date(iso+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
   const have=(journal[iso]&&journal[iso].items)||[];
   // Today's prompts first, then any old answer whose prompt has since been removed.
-  const fields=journalPrompts().map(p=>({ id:p.id, prompt:p.prompt, placeholder:p.placeholder, text:(have.find(it=>it.id===p.id)||{}).text||'' }));
-  have.forEach(it=>{ if(!fields.some(f=>f.id===it.id) && it.text.trim()) fields.push({ id:it.id, prompt:it.prompt, placeholder:'', text:it.text }); });
+  const listOf=id=>{ const it=have.find(x=>x.id===id); return it ? journalItemList(it) : []; };
+  const fields=journalPrompts().map(p=>({ id:p.id, prompt:p.prompt, placeholder:p.placeholder, list:listOf(p.id) }));
+  have.forEach(it=>{ if(!fields.some(f=>f.id===it.id) && journalItemList(it).length) fields.push({ id:it.id, prompt:it.prompt, placeholder:'', list:journalItemList(it) }); });
   const wrap=document.getElementById('journalFields');
-  wrap.innerHTML=fields.map((f,i)=>`<label class="field-label" for="jf_${i}">${esc(f.prompt)}</label>
-    <textarea class="field-input journal-field" id="jf_${i}" rows="2" data-id="${esc(f.id)}" data-prompt="${esc(f.prompt)}" placeholder="${esc(f.placeholder)}" oninput="growJournalField(this);journalInput()">${esc(f.text)}</textarea>`).join('');
+  // One box per thing; there's always an empty box at the end of each prompt for the next one.
+  wrap.innerHTML=fields.map(f=>`<div class="journal-group" data-id="${esc(f.id)}" data-prompt="${esc(f.prompt)}" data-placeholder="${esc(f.placeholder)}">
+    <div class="field-label">${esc(f.prompt)}</div>
+    ${[...f.list,''].map((x,i)=>journalBoxHtml(x, i===0?f.placeholder:'Another one')).join('')}
+  </div>`).join('');
   document.getElementById('journalSaved').textContent = journal[iso] ? 'Saves as you type' : '';
   document.getElementById('journalClearBtn').style.display = journalHasText(iso) ? '' : 'none';
   openSheet('sheetJournal');
   requestAnimationFrame(()=>wrap.querySelectorAll('textarea').forEach(growJournalField));
 }
-function growJournalField(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight+2, 240)+'px'; }
+function journalBoxHtml(text, placeholder){
+  return `<textarea class="field-input journal-field" rows="1" placeholder="${esc(placeholder)}" oninput="journalBoxInput(this)" onkeydown="journalBoxKey(event,this)">${esc(text)}</textarea>`;
+}
+function growJournalField(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight+2, 200)+'px'; }
+function journalAddBox(group, focus){
+  group.insertAdjacentHTML('beforeend', journalBoxHtml('', 'Another one'));
+  const box=group.lastElementChild;
+  if(focus) box.focus();
+  return box;
+}
+function journalBoxInput(el){
+  growJournalField(el);
+  const group=el.closest('.journal-group');
+  // Typing in the last box opens a fresh one under it.
+  if(el.value.trim() && el===group.lastElementChild) journalAddBox(group, false);
+  journalInput();
+}
+// Enter moves to the next box (making one if needed); Backspace in an empty box removes it.
+function journalBoxKey(e, el){
+  const group=el.closest('.journal-group');
+  if(e.key==='Enter' && !e.shiftKey){
+    e.preventDefault();
+    if(!el.value.trim()) return;
+    const next=el.nextElementSibling && el.nextElementSibling.tagName==='TEXTAREA' ? el.nextElementSibling : journalAddBox(group, false);
+    next.focus();
+  } else if(e.key==='Backspace' && !el.value){
+    const boxes=[...group.querySelectorAll('textarea')];
+    if(boxes.length<2) return;
+    e.preventDefault();
+    const i=boxes.indexOf(el), to=boxes[i-1]||boxes[i+1];
+    el.remove();
+    if(group.lastElementChild.value.trim()) journalAddBox(group, false);   // keep an empty box at the end
+    if(to){ to.focus(); const n=to.value.length; to.setSelectionRange(n,n); }
+    journalInput();
+  }
+}
 function journalInput(){
   const iso=journalDate; if(!iso) return;
-  const items=[...document.querySelectorAll('#journalFields textarea')].map(t=>({ id:t.dataset.id, prompt:t.dataset.prompt, text:t.value }));
+  const items=[...document.querySelectorAll('#journalFields .journal-group')].map(g=>({ id:g.dataset.id, prompt:g.dataset.prompt,
+    list:[...g.querySelectorAll('textarea')].map(t=>t.value.trim()).filter(Boolean) }));
   const now=new Date().toISOString();
-  if(items.some(it=>it.text.trim())){
+  if(items.some(it=>it.list.length)){
     journal[iso]={ items, createdAt:(journal[iso]&&journal[iso].createdAt)||now, updatedAt:now };
   } else delete journal[iso];
   saveAll();
@@ -3125,8 +3170,8 @@ function renderReview(){
   // Journal: what you wrote you'd change, and what went well, across the period.
   const jDays=daysBetween(start, end<t?end:t).filter(journalHasText);
   if(jDays.length){
-    const pick=id=>jDays.map(d=>({ d, it:journalItems(d).find(x=>x.id===id) })).filter(r=>r.it);
-    const rows=list=>list.map(r=>`<div class="journal-entry" role="button" tabindex="0" onclick="openJournal('${r.d}')"><div class="journal-a">${esc(r.it.text.trim())}</div><div class="idea-time">${fmtJournalDate(r.d)}</div></div>`).join('');
+    const pick=id=>jDays.flatMap(d=>{ const it=journalItems(d).find(x=>x.id===id); return it ? it.list.map(text=>({ d, text })) : []; });
+    const rows=list=>list.map(r=>`<div class="journal-entry" role="button" tabindex="0" onclick="openJournal('${r.d}')"><div class="journal-a">${esc(r.text)}</div><div class="idea-time">${fmtJournalDate(r.d)}</div></div>`).join('');
     const counted=daysBetween(start, end<t?end:t).length;
     section('Journal', `<div class="review-row"><div class="review-row-top"><span class="review-row-name">Days written</span><span class="review-row-value">${jDays.length}/${counted}</span></div>
       <div class="review-meter"><div class="review-meter-fill" style="width:${Math.round(jDays.length/counted*100)}%;background:var(--ink-dim)"></div></div></div>`);
