@@ -1974,15 +1974,16 @@ function makeReorderable(row, id, group, onDrop, opts={}){
     const d=drag; if(!d || !d.started) return;
     let off=(d.lastY-d.y0)+(window.scrollY-d.scroll0);
     off=Math.max(d.minOff, Math.min(d.maxOff, off));
-    const mid=d.slots[d.from].top+off+d.h/2;
-    // Rows the dragged row has passed slide up (or down) by its height.
+    const top=d.slots[d.from].top+off, bottom=top+d.h;
+    // A row slides out of the way once the dragged row's leading edge passes its middle.
+    // (Using the edge, not the middle, means the first and last spots can always be reached.)
     let to=d.from, shiftPx=0;
     d.peers.forEach((r,i)=>{
       if(i===d.from) return;
       const s=d.slots[i], pmid=s.top+s.h/2;
       let ty=0;
-      if(i>d.from && mid>pmid){ ty=-d.h; to++; shiftPx+=s.h; }
-      else if(i<d.from && mid<pmid){ ty=d.h; to--; shiftPx-=s.h; }
+      if(i>d.from && bottom>pmid){ ty=-d.h; to++; shiftPx+=s.h; }
+      else if(i<d.from && top<pmid){ ty=d.h; to--; shiftPx-=s.h; }
       r.style.transform=ty?`translateY(${ty}px)`:'';
     });
     d.to=to; d.shiftPx=shiftPx;
