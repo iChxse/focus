@@ -423,6 +423,10 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
 .lib-row-preview{ padding-left:17px; margin-top:4px; font-size:13px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .lib-archived-toggle{ font-size:13px; color:var(--ink-faint); padding:12px 16px; cursor:pointer; }
 .lib-row.archived{ opacity:.6; }
+.lib-row.sub{ padding-left:34px; }
+.dropdown-menu button.sub{ padding-left:26px; }
+.pd-parent{ font-size:13px; color:var(--ink-faint); margin-bottom:2px; cursor:pointer; }
+.pd-parent::after{ content:' ›'; }
 .slip-extra-row{ display:flex; gap:12px; }
 .slip-extra-row .field-input{ flex:1; }
 .recent-slip-row{ display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line-soft); font-size:14px; color:var(--ink-dim); }
@@ -613,16 +617,23 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
   <section class="view" id="view-project-detail">
     <div class="detail-head">
       <div class="detail-head-row">
-        <button class="text-btn" onclick="goBack()">‹ Library</button>
+        <button class="text-btn" id="pdBackBtn" onclick="pdGoBack()">‹ Library</button>
         <button class="text-btn" onclick="openEditProject(pdProjectId)">Edit</button>
       </div>
+      <div class="pd-parent" id="pdParent" role="button" tabindex="0"></div>
       <h1 class="view-title" id="pdTitle"></h1>
       <div class="pd-time" id="pdTime"></div>
     </div>
     <div class="proj-stats" id="pdStats"></div>
     <div class="view-scroll" style="padding-top:14px;">
+      <div id="pdSubWrap" style="display:none;">
+        <div class="lib-label">Projects <span class="lib-add" onclick="openNewProject(pdProjectId)">+ New</span></div>
+        <div id="pdSubList" class="card"></div>
+        <div class="lib-label" style="margin-top:18px;">Tasks</div>
+      </div>
       <div id="pdTaskList" class="card"></div>
       <button class="plan-action" style="margin-top:14px;" onclick="openNewTaskForProject()">+ Add task</button>
+      <button class="more-toggle" id="pdAddSubBtn" style="margin-top:6px;" onclick="openNewProject(pdProjectId)">+ Add a project inside this one</button>
     </div>
   </section>
 
@@ -821,6 +832,8 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
       <input class="field-input" id="projectName" placeholder="e.g. Focus, E46, Trading" onkeydown="if(event.key==='Enter')saveProject()">
       <div class="field-label">Color</div>
       <div class="chip-row" id="projectColorRow"></div>
+      <div class="field-label">Inside</div>
+      <div class="chip-row" id="projectParentRow"></div>
     </div>
     <div id="projectManageWrap" style="display:none;">
       <button class="btn-quiet" id="projectArchiveBtn" onclick="toggleProjectArchived()">Archive project</button>
@@ -1023,6 +1036,7 @@ let activeSession = ld('focus2_activeSession', null);
 
 let activeView = 'now';
 let pdProjectId = null;
+let pdFromId = null;
 let pdBucket = 'backlog';
 let selectedTaskBucket = 'backlog';
 let selectedTaskDate = '';
@@ -1035,6 +1049,7 @@ let selectedHabitTimes = 3;
 let editHabitId = null;
 let editBreakerId = null;
 let selectedProjectColor = PROJECT_COLORS[0];
+let selectedProjectParentId = null;
 let editProjectId = null;
 let libShowArchived = false;
 let captureType = 'task';
@@ -1201,8 +1216,32 @@ function taskBucket(t){
 }
 // Archived projects stay viewable in the Library but drop out of every picker.
 function activeProjects(){ return projects.filter(p=>!p.archived); }
+// Sub-projects: a project can sit inside one top-level project (one level deep).
+// Old data has no parentId, so everything starts at the top level.
+function projectParent(p){ const par = p && p.parentId ? projects.find(x=>x.id===p.parentId) : null; return par && !par.parentId ? par : null; }
+function projectChildren(pid){ return projects.filter(p=>p.parentId===pid && p.id!==pid); }
+function projectGroupIds(pid){ return [pid, ...projectChildren(pid).map(c=>c.id)]; }
+// Shown at the top level: no parent, or the parent is gone/archived.
+function isTopLevel(p){ const par=projectParent(p); return !par || (par.archived && !p.archived); }
+// Active projects in picker order: each top-level project followed by its sub-projects.
+function orderedActiveProjects(){
+  const out=[];
+  activeProjects().filter(isTopLevel).forEach(p=>{
+    out.push({ p, sub:false });
+    projectChildren(p.id).filter(c=>!c.archived).forEach(c=>out.push({ p:c, sub:true }));
+  });
+  return out;
+}
+function projectLabel(p){ const par=projectParent(p); return par ? par.name+' › '+p.name : p.name; }
+function projectMenuItems(onclickFn){
+  return orderedActiveProjects().map(({p,sub})=>`<button type="button"${sub?' class="sub"':''} onclick="${onclickFn}('${p.id}')">${esc(p.name)}</button>`).join('');
+}
+function projectChipItems(activeId, onclickFn){
+  return orderedActiveProjects().map(({p,sub})=>`<button class="chip${activeId===p.id?' active':''}" onclick="${onclickFn}('${p.id}')">${esc(sub?projectLabel(p):p.name)}</button>`).join('');
+}
 function projectTaskCounts(pid){
-  const ts = tasks.filter(t=>t.projectId===pid);
+  const ids = projectGroupIds(pid);
+  const ts = tasks.filter(t=>ids.includes(t.projectId));
   return {
     backlog: ts.filter(t=>taskBucket(t)==='backlog').length,
     soon: ts.filter(t=>taskBucket(t)==='soon').length,
@@ -1227,8 +1266,10 @@ function isTimedEntry(e){ return e.type==='session' || (e.type==='task' && e.dur
 function taskSpentMin(taskId){
   return entries.reduce((sum,e)=> (e.type==='session' && e.taskId===taskId) || (e.type==='task' && e.sourceId===taskId) ? sum+(entryDurationMin(e)||0) : sum, 0);
 }
+// Includes time on its sub-projects.
 function projectSpentMin(pid, fromIso){
-  return entries.reduce((sum,e)=> isTimedEntry(e) && e.projectId===pid && (!fromIso || e.date>=fromIso) ? sum+(entryDurationMin(e)||0) : sum, 0);
+  const ids = projectGroupIds(pid);
+  return entries.reduce((sum,e)=> isTimedEntry(e) && ids.includes(e.projectId) && (!fromIso || e.date>=fromIso) ? sum+(entryDurationMin(e)||0) : sum, 0);
 }
 // Default: timed tasks by time, untimed after. A saved custom order wins; tasks
 // added since it was saved slot in by time (untimed ones go to the end).
@@ -1631,7 +1672,7 @@ function pickFocusTask(id){
 function renderFocusProjectChipsSheet(){
   const wrap=document.getElementById('focusProjectChipsSheet'); if(!wrap) return;
   wrap.innerHTML = `<button class="chip${!focusProjectId?' active':''}" onclick="pickFocusProjectSheet(null)">None</button>` +
-    activeProjects().map(p=>`<button class="chip${focusProjectId===p.id?' active':''}" onclick="pickFocusProjectSheet('${p.id}')">${esc(p.name)}</button>`).join('');
+    projectChipItems(focusProjectId, 'pickFocusProjectSheet');
 }
 function pickFocusProjectSheet(pid){ focusProjectId=pid; renderFocusProjectChipsSheet(); }
 function setFocusGoal(min){
@@ -2034,14 +2075,15 @@ function togglePullIntoPlanDay(taskId, checked){
 }
 
 // ═══ SECTION: LIBRARY VIEW ═══
-function makeProjectLibRow(p){
+function makeProjectLibRow(p, opts={}){
   const c = projectTaskCounts(p.id);
+  const kids = opts.sub ? 0 : projectChildren(p.id).filter(k=>!k.archived).length;
   const el=document.createElement('div');
-  el.className='lib-row'; el.setAttribute('role','button'); el.setAttribute('tabindex','0');
+  el.className='lib-row'+(opts.sub?' sub':''); el.setAttribute('role','button'); el.setAttribute('tabindex','0');
   el.innerHTML=`
-    <div class="lib-row-main"><span class="dot-tag" style="background:${p.color}"></span><span class="lib-row-title">${esc(p.name)}</span></div>
-    <div class="lib-row-stats"><span>${c.backlog} Backlog</span><span>${c.soon} Soon</span><span>${c.scheduled} Scheduled</span><span>${c.completed} Completed</span></div>`;
-  el.onclick=()=>openProjectDetail(p.id);
+    <div class="lib-row-main"><span class="dot-tag" style="background:${p.color}"></span><span class="lib-row-title">${esc(opts.label||p.name)}</span></div>
+    <div class="lib-row-stats">${kids?`<span>${kids} project${kids!==1?'s':''}</span>`:''}<span>${c.backlog} Backlog</span><span>${c.soon} Soon</span><span>${c.scheduled} Scheduled</span><span>${c.completed} Completed</span></div>`;
+  el.onclick=()=>openProjectDetail(p.id, opts.from||null);
   return el;
 }
 function makeHabitLibRow(h){
@@ -2082,7 +2124,7 @@ function renderLibrary(){
   jr.onclick=()=>openJournalView();
   jRow.appendChild(jr);
   const projList=document.getElementById('libProjectsList'); projList.innerHTML='';
-  activeProjects().forEach(p=>projList.appendChild(makeProjectLibRow(p)));
+  orderedActiveProjects().forEach(({p,sub})=>projList.appendChild(makeProjectLibRow(p, {sub})));
   if(!activeProjects().length) projList.innerHTML='<div class="empty-line">No projects yet.</div>';
   const archived = projects.filter(p=>p.archived);
   if(archived.length){
@@ -2090,7 +2132,7 @@ function renderLibrary(){
     tog.textContent=(libShowArchived?'Hide':'Show')+' archived ('+archived.length+')';
     tog.onclick=()=>{ libShowArchived=!libShowArchived; renderLibrary(); };
     projList.appendChild(tog);
-    if(libShowArchived) archived.forEach(p=>{ const r=makeProjectLibRow(p); r.classList.add('archived'); projList.appendChild(r); });
+    if(libShowArchived) archived.forEach(p=>{ const r=makeProjectLibRow(p, {label:projectLabel(p)}); r.classList.add('archived'); projList.appendChild(r); });
   }
   const habList=document.getElementById('libHabitsList'); habList.innerHTML='';
   habits.forEach(h=>habList.appendChild(makeHabitLibRow(h)));
@@ -2320,13 +2362,31 @@ function clearJournalDay(){
 }
 
 // ═══ SECTION: PROJECT DETAIL ═══
-function openProjectDetail(pid){
-  pdProjectId=pid; pdBucket='backlog';
+// fromPid: the group page this was opened from, so Back returns there.
+function openProjectDetail(pid, fromPid){
+  pdProjectId=pid; pdBucket='backlog'; pdFromId=fromPid||null;
   switchView('project-detail');
+  window.scrollTo(0,0);
+}
+function pdGoBack(){
+  const from = pdFromId && projects.find(x=>x.id===pdFromId);
+  if(from) openProjectDetail(from.id); else goBack();
 }
 function renderProjectDetail(){
   const p = projects.find(x=>x.id===pdProjectId); if(!p) return;
   document.getElementById('pdTitle').textContent = p.name + (p.archived?' (archived)':'');
+  const from = pdFromId && projects.find(x=>x.id===pdFromId);
+  document.getElementById('pdBackBtn').textContent = '‹ '+(from?from.name:'Library');
+  const par = projectParent(p), parEl=document.getElementById('pdParent');
+  parEl.textContent = par ? par.name : '';
+  parEl.style.display = par && (!from || from.id!==par.id) ? '' : 'none';
+  parEl.onclick = par ? ()=>openProjectDetail(par.id) : null;
+  const kids = projectChildren(p.id).filter(k=>!k.archived || p.archived);
+  const subWrap=document.getElementById('pdSubWrap'), subList=document.getElementById('pdSubList');
+  subWrap.style.display = !p.parentId && kids.length ? '' : 'none';
+  document.getElementById('pdAddSubBtn').style.display = !p.parentId && !kids.length && !p.archived ? '' : 'none';
+  subList.innerHTML='';
+  kids.forEach(k=>subList.appendChild(makeProjectLibRow(k, {sub:false, from:p.id})));
   const total=projectSpentMin(p.id), week=projectSpentMin(p.id, reviewRange('week',0).start);
   const timeEl=document.getElementById('pdTime');
   timeEl.textContent = total ? fmtDurLong(week)+' this week · '+fmtDurLong(total)+' total' : 'No time logged yet';
@@ -2340,7 +2400,8 @@ function renderProjectDetail(){
     stats.appendChild(b);
   });
   const list=document.getElementById('pdTaskList'); list.innerHTML='';
-  const filtered = tasks.filter(t=>t.projectId===pdProjectId && taskBucket(t)===pdBucket);
+  const ids = projectGroupIds(pdProjectId);
+  const filtered = tasks.filter(t=>ids.includes(t.projectId) && taskBucket(t)===pdBucket);
   if(!filtered.length) list.innerHTML='<div class="empty-line">Nothing here.</div>';
   else filtered.forEach(t=>list.appendChild(makeTaskRow(t)));
 }
@@ -2465,13 +2526,13 @@ function handleTaskDate(val){ selectedTaskDate=val; updateTaskDateBtn(); }
 function updateTaskProjectBtn(){
   const btn=document.getElementById('taskProjectBtn');
   const proj = projects.find(p=>p.id===selectedTaskProjectId);
-  btn.innerHTML = esc(proj?proj.name:'Uncategorized')+' <span class="caret">▾</span>';
+  btn.innerHTML = esc(proj?projectLabel(proj):'Uncategorized')+' <span class="caret">▾</span>';
   btn.classList.toggle('set', !!proj);
 }
 function renderTaskProjectMenu(){
   const menu=document.getElementById('taskProjectMenu');
   menu.innerHTML = `<button type="button" onclick="pickTaskProject(null)">Uncategorized</button>` +
-    activeProjects().map(p=>`<button type="button" onclick="pickTaskProject('${p.id}')">${esc(p.name)}</button>`).join('');
+    projectMenuItems('pickTaskProject');
 }
 function pickTaskProject(pid){ selectedTaskProjectId=pid; updateTaskProjectBtn(); closeAllTaskDropdowns(); }
 function toggleTaskMore(){
@@ -2699,24 +2760,41 @@ function renderProjectColorRow(){
   document.getElementById('projectColorRow').innerHTML = PROJECT_COLORS.map(c=>`<button type="button" class="chip" style="border-color:${c};color:${c};${c===selectedProjectColor?'background:'+c+'22;':''}" onclick="pickProjectColor('${c}')">●</button>`).join('');
 }
 function pickProjectColor(c){ selectedProjectColor=c; renderProjectColorRow(); }
-function openNewProject(){
+// Only top-level projects can hold sub-projects, and a project with sub-projects stays top level.
+function renderProjectParentRow(){
+  const row=document.getElementById('projectParentRow');
+  if(editProjectId && projectChildren(editProjectId).length){
+    row.innerHTML='<div class="empty-line" style="padding:0;">Has its own projects, so it stays at the top.</div>';
+    return;
+  }
+  const opts=activeProjects().filter(p=>!p.parentId && p.id!==editProjectId);
+  const cur=projects.find(p=>p.id===selectedProjectParentId);
+  if(cur && cur.archived) opts.push(cur);
+  row.innerHTML = `<button type="button" class="chip${!selectedProjectParentId?' active':''}" onclick="pickProjectParent(null)">Nothing (top level)</button>` +
+    opts.map(p=>`<button type="button" class="chip${selectedProjectParentId===p.id?' active':''}" onclick="pickProjectParent('${p.id}')">${esc(p.name)}</button>`).join('');
+}
+function pickProjectParent(pid){ selectedProjectParentId=pid; renderProjectParentRow(); }
+function openNewProject(parentId){
   editProjectId=null; selectedProjectColor=PROJECT_COLORS[0];
+  selectedProjectParentId = typeof parentId==='string' ? parentId : null;
+  const par=projects.find(p=>p.id===selectedProjectParentId);
+  if(par) selectedProjectColor=par.color;
   document.getElementById('projectName').value='';
   document.getElementById('projectSheetTitle').textContent='New project';
   document.getElementById('projectSaveBtn').textContent='Create';
   document.getElementById('projectManageWrap').style.display='none';
-  renderProjectColorRow();
+  renderProjectColorRow(); renderProjectParentRow();
   openSheet('sheetProject');
 }
 function openEditProject(pid){
   const p=projects.find(x=>x.id===pid); if(!p) return;
-  editProjectId=pid; selectedProjectColor=p.color;
+  editProjectId=pid; selectedProjectColor=p.color; selectedProjectParentId=p.parentId||null;
   document.getElementById('projectName').value=p.name;
   document.getElementById('projectSheetTitle').textContent='Edit project';
   document.getElementById('projectSaveBtn').textContent='Save';
   document.getElementById('projectArchiveBtn').textContent=p.archived?'Unarchive project':'Archive project';
   document.getElementById('projectManageWrap').style.display='';
-  renderProjectColorRow();
+  renderProjectColorRow(); renderProjectParentRow();
   openSheet('sheetProject');
 }
 function toggleProjectArchived(){
@@ -2730,6 +2808,8 @@ function deleteProjectConfirmed(){
   const pid=editProjectId, p=projects.find(x=>x.id===pid); if(!p) return;
   const snap={ projects:JSON.stringify(projects), tasks:JSON.stringify(tasks), entries:JSON.stringify(entries) };
   projects=projects.filter(x=>x.id!==pid);
+  projects.forEach(x=>{ if(x.parentId===pid) delete x.parentId; });   // its sub-projects move to the top
+  if(pdFromId===pid) pdFromId=null;
   tasks.forEach(t=>{ if(t.projectId===pid) t.projectId=null; });
   entries.forEach(e=>{ if(e.projectId===pid) e.projectId=null; });
   if(activeSession && activeSession.projectId===pid){ activeSession.projectId=null; sv('focus2_activeSession', activeSession); }
@@ -2747,9 +2827,14 @@ function saveProject(){
   if(!name){ document.getElementById('projectName').focus(); return false; }
   if(editProjectId){
     const p=projects.find(x=>x.id===editProjectId);
-    if(p){ p.name=name; p.color=selectedProjectColor; }
+    if(p){
+      p.name=name; p.color=selectedProjectColor;
+      if(!projectChildren(p.id).length){ if(selectedProjectParentId) p.parentId=selectedProjectParentId; else delete p.parentId; }
+    }
   } else {
-    projects.push({ id:'p'+Date.now(), name, color:selectedProjectColor, createdAt:new Date().toISOString() });
+    const np={ id:'p'+Date.now(), name, color:selectedProjectColor, createdAt:new Date().toISOString() };
+    if(selectedProjectParentId) np.parentId=selectedProjectParentId;
+    projects.push(np);
   }
   saveAll(); closeSheet('sheetProject'); renderCurrentView();
   showToast(editProjectId?'Project updated':'Project created');
@@ -2822,10 +2907,10 @@ function renderCaptureExtra(){
           </div>
         </div>
         <div class="dropdown-field">
-          <button type="button" class="dropdown-btn${proj?' set':''}" onclick="event.stopPropagation();toggleCaptureProjectMenu()">${esc(proj?proj.name:'Uncategorized')} <span class="caret">▾</span></button>
+          <button type="button" class="dropdown-btn${proj?' set':''}" onclick="event.stopPropagation();toggleCaptureProjectMenu()">${esc(proj?projectLabel(proj):'Uncategorized')} <span class="caret">▾</span></button>
           <div class="dropdown-menu" id="captureProjectMenu" style="display:none;">
             <button type="button" onclick="setCaptureTaskProject(null)">Uncategorized</button>
-            ${activeProjects().map(p=>`<button type="button" onclick="setCaptureTaskProject('${p.id}')">${esc(p.name)}</button>`).join('')}
+            ${projectMenuItems('setCaptureTaskProject')}
           </div>
         </div>
       </div>
@@ -2851,7 +2936,7 @@ function renderCaptureExtra(){
       <div class="field-label">Project</div>
       <div class="chip-row">
         <button class="chip${!captureDidProjectId?' active':''}" onclick="setCaptureDidProject(null)">None</button>
-        ${activeProjects().map(p=>`<button class="chip${captureDidProjectId===p.id?' active':''}" onclick="setCaptureDidProject('${p.id}')">${esc(p.name)}</button>`).join('')}
+        ${projectChipItems(captureDidProjectId, 'setCaptureDidProject')}
       </div>
       ${captureDidTimeOpen||captureDidMinutes ? `
       <div class="field-label">Time spent</div>
