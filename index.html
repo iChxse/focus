@@ -376,6 +376,7 @@ input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].
    scrolls to fit them instead of clipping them under the pinned Save bar. */
 .dropdown-menu{ margin-top:6px; background:var(--bg-hover); border:1px solid var(--line); border-radius:var(--r-md); max-height:220px; overflow-y:auto; overscroll-behavior:contain; padding:4px; scroll-margin-bottom:100px; }
 .dropdown-menu button{ display:block; width:100%; text-align:left; padding:10px 12px; font-size:14px; color:var(--ink); border-radius:var(--r-sm); }
+.habit-log-status{ font-size:13.5px; color:var(--ink-dim); margin-bottom:14px; }
 .more-toggle{ font-size:13.5px; font-weight:500; color:var(--ink-faint); text-align:left; padding:4px 0; margin-bottom:4px; }
 
 /* Plan-a-day sheet */
@@ -1012,6 +1013,18 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
 </div>
 
 <!-- ════════════════════════════════
+     SHEET: LOG HABIT (pick the day and time it was done)
+════════════════════════════════ -->
+<div class="sheet-overlay" id="sheetHabitLog" onclick="sheetOverlayClick(event,'sheetHabitLog')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="habitLogTitle"></div>
+    <div class="sheet-body" id="habitLogBody"></div>
+    <div class="sheet-actions" id="habitLogActions"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
      SHEET: BREAKER DETAIL
 ════════════════════════════════ -->
 <div class="sheet-overlay" id="sheetBreakerDetail" onclick="sheetOverlayClick(event,'sheetBreakerDetail')">
@@ -1455,7 +1468,7 @@ function makeHabitRow(h,t){
       <div class="check-title">${esc(h.name)}</div>
       <div class="check-meta">${isWeeklyHabit(h) ? habitWeekCount(h.id,weekStartOf(t))+'/'+habitTarget(h)+' this week · ' : ''}${habitStreakLabel(h)}</div>
     </div>`;
-  el.addEventListener('click', e=>{ if(e.target.closest('.check-dot')) return; openHabitDetailSheet(h.id); });
+  el.addEventListener('click', e=>{ if(e.target.closest('.check-dot')) return; openHabitLog(h.id); });
   return el;
 }
 function makeBreakerRow(b,t){
@@ -1562,6 +1575,81 @@ function toggleHabitOn(habitId,t,silent){
   saveAll();
   renderCurrentView();
   if(!was && !silent) showToast('Completed "'+h.name+'"', ()=>toggleHabitOn(habitId,t));
+}
+function habitEntryOn(habitId,iso){ return entries.find(e=>e.type==='habit' && e.sourceId===habitId && e.date===iso); }
+// Marks a habit done on a day at a given moment (or moves the time if already done).
+function logHabitAt(habitId,iso,when){
+  const h=habits.find(x=>x.id===habitId); if(!h) return;
+  if(!habitCompletedOn(habitId,iso)) completions.push({habitId,date:iso});
+  const old=habitEntryOn(habitId,iso);
+  entries=entries.filter(e=>!(e.type==='habit' && e.sourceId===habitId && e.date===iso));
+  upsertEntry({ id:'eh_h_'+habitId+'_'+iso, type:'habit', sourceId:habitId, title:h.name, subtitle:'', projectId:null, date:iso, start:when.toISOString(), end:null, durationMin:null, createdAt:old?old.createdAt:new Date().toISOString() });
+  const streak=calcStreak(h);
+  if(streak>(h.bestStreak||0)) h.bestStreak=streak;
+}
+
+// ═══ SECTION: LOG HABIT SHEET ═══
+// Tapping a habit row (not its check) opens this, so it can be logged at the
+// time it was really done, on today or an earlier day.
+let habitLogId=null, habitLogDay='', habitLogPick=false, habitLogClock='';
+function openHabitLog(habitId, iso){
+  const h=habits.find(x=>x.id===habitId); if(!h) return;
+  habitLogId=habitId; habitLogPick=false;
+  setHabitLogDay(iso||today(), false, true);
+  openSheet('sheetHabitLog');
+}
+function setHabitLogDay(iso, pick, keepClosed){
+  habitLogDay=iso||today(); habitLogPick=!!pick;
+  const ent=habitEntryOn(habitLogId, habitLogDay);
+  if(ent) habitLogClock=clockOf(ent.start);
+  else if(habitLogDay===today() || !habitLogClock) habitLogClock=clockOf(new Date());
+  renderHabitLog();
+}
+function renderHabitLog(){
+  const h=habits.find(x=>x.id===habitLogId); if(!h) return;
+  const done=habitCompletedOn(h.id, habitLogDay), ent=habitEntryOn(h.id, habitLogDay);
+  const y=addDays(today(),-1), other=habitLogPick || (habitLogDay!==today() && habitLogDay!==y);
+  const dayWord = habitLogDay===today() ? 'today' : habitLogDay===y ? 'yesterday' : fmtScheduleLabel(habitLogDay);
+  document.getElementById('habitLogTitle').textContent=h.name;
+  document.getElementById('habitLogBody').innerHTML=`
+    <div class="habit-log-status">${done ? 'Done '+esc(dayWord)+(ent?' at '+fmtTimeShort(ent.start):'') : 'Not done '+esc(dayWord)} · ${esc(habitStreakLabel(h))}</div>
+    <div class="field-label">Day</div>
+    <div class="chip-row">
+      <button class="chip${!other&&habitLogDay===today()?' active':''}" onclick="setHabitLogDay(today())">Today</button>
+      <button class="chip${!other&&habitLogDay===y?' active':''}" onclick="setHabitLogDay('${y}')">Yesterday</button>
+      <button class="chip${other?' active':''}" onclick="setHabitLogDay(habitLogDay,true)">${other&&habitLogDay<y?esc(fmtScheduleLabel(habitLogDay)):'Pick date…'}</button>
+    </div>
+    ${other?`<input type="date" class="field-input" max="${today()}" value="${habitLogDay}" onchange="if(this.value&&this.value<=today())setHabitLogDay(this.value,true)">`:''}
+    <div class="field-label">Done at</div>
+    <input type="time" class="field-input" id="habitLogClock" value="${habitLogClock}" onchange="habitLogClock=this.value">
+    <button type="button" class="more-toggle" style="margin-top:10px;" onclick="closeSheet('sheetHabitLog');openHabitDetailSheet('${h.id}')">History and edit habit</button>`;
+  document.getElementById('habitLogActions').innerHTML = done
+    ? `<button class="btn-cancel" onclick="unlogHabitFromSheet()">Not done</button><button class="btn-save" onclick="saveHabitLog()">Save time</button>`
+    : `<button class="btn-cancel" onclick="closeSheet('sheetHabitLog')">Cancel</button><button class="btn-save" onclick="saveHabitLog()">Log it</button>`;
+}
+function saveHabitLog(){
+  const h=habits.find(x=>x.id===habitLogId); if(!h) return;
+  const iso=habitLogDay<=today() ? habitLogDay : today();
+  const when=atClockOn(iso, habitLogClock);
+  if(when>new Date()){ showToast("That time hasn't happened yet"); return; }
+  const snap={ completions:JSON.stringify(completions), entries:JSON.stringify(entries), best:h.bestStreak };
+  const was=habitCompletedOn(h.id, iso);
+  logHabitAt(h.id, iso, when);
+  saveAll(); closeSheet('sheetHabitLog'); renderCurrentView();
+  const y=addDays(today(),-1);
+  const dayNote = iso===today() ? '' : iso===y ? ' yesterday' : ' on '+fmtScheduleLabel(iso);
+  showToast((was?'Moved "'+h.name+'" to ':'Logged "'+h.name+'" at ')+fmtTimeShort(when)+dayNote, ()=>{
+    completions=JSON.parse(snap.completions); entries=JSON.parse(snap.entries); h.bestStreak=snap.best; saveAll(); renderCurrentView();
+  });
+}
+function unlogHabitFromSheet(){
+  const h=habits.find(x=>x.id===habitLogId); if(!h) return;
+  const iso=habitLogDay;
+  const snap={ completions:JSON.stringify(completions), entries:JSON.stringify(entries) };
+  completions=completions.filter(c=>!(c.habitId===h.id && c.date===iso));
+  entries=entries.filter(e=>!(e.type==='habit' && e.sourceId===h.id && e.date===iso));
+  saveAll(); closeSheet('sheetHabitLog'); renderCurrentView();
+  showToast('Marked "'+h.name+'" not done', ()=>{ completions=JSON.parse(snap.completions); entries=JSON.parse(snap.entries); saveAll(); renderCurrentView(); });
 }
 function toggleBreakerSuccess(breakerId,e){
   if(e) e.stopPropagation();
@@ -2489,7 +2577,7 @@ function openHabitDetailSheet(habitId){
     <div class="field-label" style="margin-top:16px;">History</div>
     ${recent.length ? recent.map(r=>`<div class="detail-row"><span class="detail-row-label">${new Date(r.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span><span class="detail-row-value">${r.done?'✓ Done':'— Missed'}</span></div>`).join('') : '<div class="empty-line">No history yet.</div>'}`;
   }
-  document.getElementById('habitDetailActions').innerHTML = `<button class="btn-cancel" onclick="closeSheet('sheetHabitDetail')">Close</button><button class="btn-save" onclick="closeSheet('sheetHabitDetail');openEditHabit('${h.id}')">Edit</button>`;
+  document.getElementById('habitDetailActions').innerHTML = `<button class="btn-cancel" onclick="closeSheet('sheetHabitDetail');openEditHabit('${h.id}')">Edit</button><button class="btn-save" onclick="closeSheet('sheetHabitDetail');openHabitLog('${h.id}')">Log it</button>`;
   openSheet('sheetHabitDetail');
 }
 function openBreakerDetailSheet(breakerId){
@@ -2916,8 +3004,8 @@ function saveProject(){
 let captureTaskMoreOpen=false, captureTaskNotes='', captureTaskEstimate=null, captureTaskTime='', captureTaskRepeat=null;
 function pickCaptureTaskEstimate(min){ captureTaskEstimate = captureTaskEstimate===min ? null : min; renderCaptureExtra(); }
 function pickCaptureTaskRepeat(freq){ captureTaskRepeat=freq; renderCaptureExtra(); }
-let captureSlipBreakerId=null, captureHabitId=null, captureTaskProjectId=null, captureTaskDate='', captureDidProjectId=null, captureDidMinutes=null, captureDidTimeOpen=false, captureDidClock='', captureSlipMinutes=null;
-// Day that Did it, Habit and Failure land on, so a forgotten day can be filled in.
+let captureSlipBreakerId=null, captureHabitRepeat='daily', captureHabitDays=[], captureHabitTimes=3, captureTaskProjectId=null, captureTaskDate='', captureDidProjectId=null, captureDidMinutes=null, captureDidTimeOpen=false, captureDidClock='', captureSlipMinutes=null;
+// Day that Did it and Failure land on, so a forgotten day can be filled in.
 let captureDay='', captureDayPick=false;
 function setCaptureDay(iso, pick){ captureDay=iso||today(); captureDayPick=!!pick; renderCaptureExtra(); }
 function captureDayRow(){
@@ -2930,8 +3018,10 @@ function captureDayRow(){
     </div>
     ${other?`<input type="date" class="field-input" max="${today()}" value="${captureDay}" onchange="if(this.value&&this.value<=today()){captureDay=this.value;renderCaptureExtra();}">`:''}`;
 }
+const CAPTURE_PLACEHOLDERS={ habit:'New habit, e.g. Gym, Read, Stretch' };
 function setCaptureType(type){
   captureType=type;
+  document.getElementById('captureText').placeholder = CAPTURE_PLACEHOLDERS[type] || 'What happened, or what needs to happen?';
   document.querySelectorAll('.capture-type').forEach(b=>b.classList.toggle('active', b.dataset.t===type));
   renderCaptureExtra();
 }
@@ -2945,7 +3035,9 @@ function setCaptureBucket(b){
 }
 function setCaptureTaskProject(pid){ captureTaskProjectId=pid; closeAllTaskDropdowns(); renderCaptureExtra(); }
 function setCaptureDidProject(pid){ captureDidProjectId=pid; renderCaptureExtra(); }
-function setCaptureHabit(id){ captureHabitId=id; renderCaptureExtra(); }
+function setCaptureHabitRepeat(t){ captureHabitRepeat=t; renderCaptureExtra(); }
+function setCaptureHabitTimes(n){ captureHabitTimes=n; renderCaptureExtra(); }
+function toggleCaptureHabitDay(d){ captureHabitDays = captureHabitDays.includes(d) ? captureHabitDays.filter(x=>x!==d) : [...captureHabitDays, d]; renderCaptureExtra(); }
 function setCaptureSlipBreaker(id){ captureSlipBreakerId=id; renderCaptureExtra(); }
 function toggleCaptureDateMenu(){
   const menu=document.getElementById('captureDateMenu');
@@ -3013,7 +3105,12 @@ function renderCaptureExtra(){
       <input type="number" inputmode="numeric" class="field-input" id="captureMinutes" min="0" placeholder="Minutes (optional)" value="${captureDidMinutes||''}" oninput="captureDidMinutes=parseInt(this.value)||null">`
       : `<button type="button" class="more-toggle" onclick="captureDidTimeOpen=true;renderCaptureExtra();document.getElementById('captureMinutes')?.focus()">+ Time spent</button>`}`;
   } else if(captureType==='habit'){
-    wrap.innerHTML = `${captureDayRow()}<div class="field-label">Which habit?</div><div class="chip-row">${habits.map(h=>`<button class="chip${captureHabitId===h.id?' active':''}" onclick="setCaptureHabit('${h.id}')">${esc(h.name)}</button>`).join('')}</div>`;
+    // Creates a new habit; the text above is its name. Logging one is done by tapping it on Now.
+    wrap.innerHTML = `
+      <div class="field-label">Repeats</div>
+      <div class="chip-row">${[['daily','Every day'],['custom','Custom days'],['weekly','Times per week']].map(([k,l])=>`<button class="chip${captureHabitRepeat===k?' active':''}" onclick="setCaptureHabitRepeat('${k}')">${l}</button>`).join('')}</div>
+      ${captureHabitRepeat==='weekly'?`<div class="chip-row">${[1,2,3,4,5,6].map(n=>`<button class="chip${captureHabitTimes===n?' active':''}" onclick="setCaptureHabitTimes(${n})">${n}×</button>`).join('')}</div>`:''}
+      ${captureHabitRepeat==='custom'?`<div class="chip-row">${[[1,'M'],[2,'T'],[3,'W'],[4,'T'],[5,'F'],[6,'S'],[0,'S']].map(([d,l])=>`<button class="chip${captureHabitDays.includes(d)?' active':''}" onclick="toggleCaptureHabitDay(${d})">${l}</button>`).join('')}</div>`:''}`;
   } else if(captureType==='slip'){
     wrap.innerHTML = `
       ${captureDayRow()}
@@ -3043,7 +3140,7 @@ function openCapture(){
   captureTaskMoreOpen=false; captureTaskNotes=''; captureTaskEstimate=null; captureTaskTime=''; captureTaskRepeat=null; captureDidMinutes=null; captureDidTimeOpen=false; captureSlipMinutes=null;
   captureDidClock=clockOf(new Date());
   captureDay=today(); captureDayPick=false;
-  captureHabitId = habits[0] ? habits[0].id : null;
+  captureHabitRepeat='daily'; captureHabitDays=[]; captureHabitTimes=3;
   captureSlipBreakerId = breakers[0] ? breakers[0].id : null;
   captureTypeLocked=false;
   setCaptureType('task');
@@ -3087,8 +3184,9 @@ function saveCapture(){
     upsertEntry({ id:'et_'+tk.id, type:'task', sourceId:tk.id, title:text, subtitle:'', projectId:tk.projectId, date:day, start:at, end:null, durationMin:captureDidMinutes>0?captureDidMinutes:null, createdAt:tk.createdAt });
     showToast('Logged'+dayNote);
   } else if(captureType==='habit'){
-    if(captureHabitId && !habitCompletedOn(captureHabitId,day)) toggleHabitOn(captureHabitId, day, true);
-    showToast('Habit marked done'+dayNote);
+    if(captureHabitRepeat==='custom' && !captureHabitDays.length){ showToast('Pick at least one day'); return; }
+    habits.push({ id:'h'+Date.now(), name:text, repeatType:captureHabitRepeat, repeatDays:captureHabitRepeat==='custom'?[...captureHabitDays]:[], timesPerWeek:captureHabitTimes, bestStreak:0, time:'', createdAt:now.toISOString() });
+    showToast('Habit added');
   } else if(captureType==='slip'){
     if(captureSlipBreakerId){
       pushBreakerResult(captureSlipBreakerId, day, 'failure', momentOn(day).toISOString(), captureSlipMinutes, text);
@@ -3521,7 +3619,7 @@ function showToast(msg,undoFn){
 }
 document.addEventListener('keydown', e=>{
   if(e.key==='Escape'){
-    ['sheetTask','sheetHabit','sheetBreaker','sheetProject','sheetPlanTomorrow','sheetCapture','sheetTaskDetail','sheetHabitDetail','sheetBreakerDetail','sheetDay','sheetIdea','sheetImport','sheetJournal'].forEach(closeSheet);
+    ['sheetTask','sheetHabit','sheetBreaker','sheetProject','sheetPlanTomorrow','sheetCapture','sheetTaskDetail','sheetHabitDetail','sheetHabitLog','sheetBreakerDetail','sheetDay','sheetIdea','sheetImport','sheetJournal'].forEach(closeSheet);
   }
   if((e.key==='Enter'||e.key===' ') && e.target.matches('[role="button"]')){
     e.preventDefault();
