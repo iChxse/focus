@@ -423,10 +423,13 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
 .lib-row-preview{ padding-left:17px; margin-top:4px; font-size:13px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .lib-archived-toggle{ font-size:13px; color:var(--ink-faint); padding:12px 16px; cursor:pointer; }
 .lib-row.archived{ opacity:.6; }
-.lib-row.sub{ padding-left:34px; }
-.dropdown-menu button.sub{ padding-left:26px; }
-.pd-parent{ font-size:13px; color:var(--ink-faint); margin-bottom:2px; cursor:pointer; }
-.pd-parent::after{ content:' ›'; }
+.lib-adds{ display:flex; gap:14px; }
+.folder-icon{ color:var(--ink-faint); flex-shrink:0; margin-left:-4px; margin-right:-2px; }
+.row-chevron{ margin-left:auto; color:var(--ink-faint); font-size:18px; line-height:1; }
+.row-time{ margin-left:auto; font-size:12.5px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
+.folder-row .lib-row-preview{ padding-left:21px; }
+.dropdown-group{ padding:10px 12px 4px; font-size:11.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); }
+.dropdown-menu button.sub{ padding-left:22px; }
 .slip-extra-row{ display:flex; gap:12px; }
 .slip-extra-row .field-input{ flex:1; }
 .recent-slip-row{ display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line-soft); font-size:14px; color:var(--ink-dim); }
@@ -571,7 +574,7 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
     <div class="view-head"><h1 class="view-title">Library</h1></div>
     <div class="view-scroll">
       <div class="lib-group">
-        <div class="lib-label">Projects <span class="lib-add" onclick="openNewProject()">+ New</span></div>
+        <div class="lib-label">Projects <span class="lib-adds"><span class="lib-add" onclick="openNewFolder()">+ Folder</span><span class="lib-add" onclick="openNewProject()">+ New</span></span></div>
         <div id="libProjectsList" class="card"></div>
       </div>
       <div class="lib-group">
@@ -612,6 +615,24 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
   </section>
 
   <!-- ════════════════════════════════
+       FOLDER (a group of projects)
+  ════════════════════════════════ -->
+  <section class="view" id="view-folder">
+    <div class="detail-head">
+      <div class="detail-head-row">
+        <button class="text-btn" onclick="goBack()">‹ Library</button>
+        <button class="text-btn" onclick="openEditFolder(folderViewId)">Edit</button>
+      </div>
+      <h1 class="view-title" id="folderTitle"></h1>
+      <div class="pd-time" id="folderTime"></div>
+    </div>
+    <div class="view-scroll" style="padding-top:14px;">
+      <div id="folderProjectList" class="card"></div>
+      <button class="plan-action" style="margin-top:14px;" onclick="openNewProject(folderViewId)">+ New project</button>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════
        PROJECT DETAIL
   ════════════════════════════════ -->
   <section class="view" id="view-project-detail">
@@ -620,20 +641,13 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
         <button class="text-btn" id="pdBackBtn" onclick="pdGoBack()">‹ Library</button>
         <button class="text-btn" onclick="openEditProject(pdProjectId)">Edit</button>
       </div>
-      <div class="pd-parent" id="pdParent" role="button" tabindex="0"></div>
       <h1 class="view-title" id="pdTitle"></h1>
       <div class="pd-time" id="pdTime"></div>
     </div>
     <div class="proj-stats" id="pdStats"></div>
     <div class="view-scroll" style="padding-top:14px;">
-      <div id="pdSubWrap" style="display:none;">
-        <div class="lib-label">Projects <span class="lib-add" onclick="openNewProject(pdProjectId)">+ New</span></div>
-        <div id="pdSubList" class="card"></div>
-        <div class="lib-label" style="margin-top:18px;">Tasks</div>
-      </div>
       <div id="pdTaskList" class="card"></div>
       <button class="plan-action" style="margin-top:14px;" onclick="openNewTaskForProject()">+ Add task</button>
-      <button class="more-toggle" id="pdAddSubBtn" style="margin-top:6px;" onclick="openNewProject(pdProjectId)">+ Add a project inside this one</button>
     </div>
   </section>
 
@@ -824,6 +838,24 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
 <!-- ════════════════════════════════
      SHEET: PROJECT
 ════════════════════════════════ -->
+<div class="sheet-overlay" id="sheetFolder" onclick="sheetOverlayClick(event,'sheetFolder')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="folderSheetTitle">New folder</div>
+    <div class="sheet-body">
+      <input class="field-input" id="folderName" placeholder="e.g. Cars, Work, School" onkeydown="if(event.key==='Enter')saveFolder()">
+      <div class="empty-line" style="padding:8px 2px 0;">Put projects in it from each project's Edit.</div>
+    </div>
+    <div id="folderManageWrap" style="display:none;">
+      <button class="btn-danger" onclick="deleteFolderConfirmed()">Delete folder</button>
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeSheet('sheetFolder')">Cancel</button>
+      <button class="btn-save" id="folderSaveBtn" onclick="saveFolder()">Create</button>
+    </div>
+  </div>
+</div>
+
 <div class="sheet-overlay" id="sheetProject" onclick="sheetOverlayClick(event,'sheetProject')">
   <div class="sheet">
     <div class="sheet-handle"></div>
@@ -832,8 +864,10 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
       <input class="field-input" id="projectName" placeholder="e.g. Focus, E46, Trading" onkeydown="if(event.key==='Enter')saveProject()">
       <div class="field-label">Color</div>
       <div class="chip-row" id="projectColorRow"></div>
-      <div class="field-label">Inside</div>
-      <div class="chip-row" id="projectParentRow"></div>
+      <div id="projectFolderWrap">
+        <div class="field-label">Folder</div>
+        <div class="chip-row" id="projectFolderRow"></div>
+      </div>
     </div>
     <div id="projectManageWrap" style="display:none;">
       <button class="btn-quiet" id="projectArchiveBtn" onclick="toggleProjectArchived()">Archive project</button>
@@ -1026,6 +1060,9 @@ let breakerResults = ld('focus2_breakerResults', []);
 let entries     = ld('focus2_entries', []);
 // Quick notes kept apart from tasks: { id, text, createdAt, updatedAt }, newest first.
 let ideas       = ld('focus2_ideas', []);
+// Folders group projects (e.g. "Cars" holding e46 and Mazda). A project's folderId is optional,
+// so older data simply has every project outside a folder.
+let folders     = ld('focus2_folders', []);
 // One entry per day: { 'YYYY-MM-DD': { items:[{ id, prompt, text }], createdAt, updatedAt } }.
 // Each answer keeps its prompt's wording, so changing the prompts later never loses old answers.
 let journal     = ld('focus2_journal', {});
@@ -1036,7 +1073,6 @@ let activeSession = ld('focus2_activeSession', null);
 
 let activeView = 'now';
 let pdProjectId = null;
-let pdFromId = null;
 let pdBucket = 'backlog';
 let selectedTaskBucket = 'backlog';
 let selectedTaskDate = '';
@@ -1049,8 +1085,11 @@ let selectedHabitTimes = 3;
 let editHabitId = null;
 let editBreakerId = null;
 let selectedProjectColor = PROJECT_COLORS[0];
-let selectedProjectParentId = null;
 let editProjectId = null;
+let editFolderId = null;
+let folderViewId = null;
+let pdFromFolderId = null;
+let selectedProjectFolderId = null;
 let libShowArchived = false;
 let captureType = 'task';
 let captureTaskBucket = 'backlog';
@@ -1074,6 +1113,7 @@ function saveAll(){
   sv('focus2_breakerResults', breakerResults);
   sv('focus2_entries', entries);
   sv('focus2_ideas', ideas);
+  sv('focus2_folders', folders);
   sv('focus2_journal', journal);
   sv('focus2_dayOrder', dayOrder);
 }
@@ -1216,32 +1256,21 @@ function taskBucket(t){
 }
 // Archived projects stay viewable in the Library but drop out of every picker.
 function activeProjects(){ return projects.filter(p=>!p.archived); }
-// Sub-projects: a project can sit inside one top-level project (one level deep).
-// Old data has no parentId, so everything starts at the top level.
-function projectParent(p){ const par = p && p.parentId ? projects.find(x=>x.id===p.parentId) : null; return par && !par.parentId ? par : null; }
-function projectChildren(pid){ return projects.filter(p=>p.parentId===pid && p.id!==pid); }
-function projectGroupIds(pid){ return [pid, ...projectChildren(pid).map(c=>c.id)]; }
-// Shown at the top level: no parent, or the parent is gone/archived.
-function isTopLevel(p){ const par=projectParent(p); return !par || (par.archived && !p.archived); }
-// Active projects in picker order: each top-level project followed by its sub-projects.
-function orderedActiveProjects(){
-  const out=[];
-  activeProjects().filter(isTopLevel).forEach(p=>{
-    out.push({ p, sub:false });
-    projectChildren(p.id).filter(c=>!c.archived).forEach(c=>out.push({ p:c, sub:true }));
-  });
-  return out;
-}
-function projectLabel(p){ const par=projectParent(p); return par ? par.name+' › '+p.name : p.name; }
+function projectFolder(p){ return p && p.folderId ? folders.find(f=>f.id===p.folderId)||null : null; }
+function folderProjects(fid){ return activeProjects().filter(p=>p.folderId===fid); }
+function looseProjects(){ return activeProjects().filter(p=>!projectFolder(p)); }
+function folderSpentMin(fid, fromIso){ return folderProjects(fid).reduce((sum,p)=>sum+projectSpentMin(p.id, fromIso), 0); }
+// Picker lists: projects outside folders first, then each folder's projects under its name.
 function projectMenuItems(onclickFn){
-  return orderedActiveProjects().map(({p,sub})=>`<button type="button"${sub?' class="sub"':''} onclick="${onclickFn}('${p.id}')">${esc(p.name)}</button>`).join('');
+  return looseProjects().map(p=>`<button type="button" onclick="${onclickFn}('${p.id}')">${esc(p.name)}</button>`).join('') +
+    folders.map(f=>{ const ps=folderProjects(f.id); return ps.length ? `<div class="dropdown-group">${esc(f.name)}</div>`+ps.map(p=>`<button type="button" class="sub" onclick="${onclickFn}('${p.id}')">${esc(p.name)}</button>`).join('') : ''; }).join('');
 }
 function projectChipItems(activeId, onclickFn){
-  return orderedActiveProjects().map(({p,sub})=>`<button class="chip${activeId===p.id?' active':''}" onclick="${onclickFn}('${p.id}')">${esc(sub?projectLabel(p):p.name)}</button>`).join('');
+  const chip=p=>`<button class="chip${activeId===p.id?' active':''}" onclick="${onclickFn}('${p.id}')">${esc(p.name)}</button>`;
+  return [...looseProjects(), ...folders.flatMap(f=>folderProjects(f.id))].map(chip).join('');
 }
 function projectTaskCounts(pid){
-  const ids = projectGroupIds(pid);
-  const ts = tasks.filter(t=>ids.includes(t.projectId));
+  const ts = tasks.filter(t=>t.projectId===pid);
   return {
     backlog: ts.filter(t=>taskBucket(t)==='backlog').length,
     soon: ts.filter(t=>taskBucket(t)==='soon').length,
@@ -1266,10 +1295,8 @@ function isTimedEntry(e){ return e.type==='session' || (e.type==='task' && e.dur
 function taskSpentMin(taskId){
   return entries.reduce((sum,e)=> (e.type==='session' && e.taskId===taskId) || (e.type==='task' && e.sourceId===taskId) ? sum+(entryDurationMin(e)||0) : sum, 0);
 }
-// Includes time on its sub-projects.
 function projectSpentMin(pid, fromIso){
-  const ids = projectGroupIds(pid);
-  return entries.reduce((sum,e)=> isTimedEntry(e) && ids.includes(e.projectId) && (!fromIso || e.date>=fromIso) ? sum+(entryDurationMin(e)||0) : sum, 0);
+  return entries.reduce((sum,e)=> isTimedEntry(e) && e.projectId===pid && (!fromIso || e.date>=fromIso) ? sum+(entryDurationMin(e)||0) : sum, 0);
 }
 // Default: timed tasks by time, untimed after. A saved custom order wins; tasks
 // added since it was saved slot in by time (untimed ones go to the end).
@@ -2075,15 +2102,25 @@ function togglePullIntoPlanDay(taskId, checked){
 }
 
 // ═══ SECTION: LIBRARY VIEW ═══
-function makeProjectLibRow(p, opts={}){
-  const c = projectTaskCounts(p.id);
-  const kids = opts.sub ? 0 : projectChildren(p.id).filter(k=>!k.archived).length;
+const FOLDER_ICON='<svg class="folder-icon" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M1.75 4.25c0-.69.56-1.25 1.25-1.25h3.1l1.4 1.5H13c.69 0 1.25.56 1.25 1.25v6.5c0 .69-.56 1.25-1.25 1.25H3c-.69 0-1.25-.56-1.25-1.25z"/></svg>';
+function makeFolderLibRow(f){
+  const ps=folderProjects(f.id), week=folderSpentMin(f.id, reviewRange('week',0).start);
   const el=document.createElement('div');
-  el.className='lib-row'+(opts.sub?' sub':''); el.setAttribute('role','button'); el.setAttribute('tabindex','0');
+  el.className='lib-row folder-row'; el.setAttribute('role','button'); el.setAttribute('tabindex','0');
   el.innerHTML=`
-    <div class="lib-row-main"><span class="dot-tag" style="background:${p.color}"></span><span class="lib-row-title">${esc(opts.label||p.name)}</span></div>
-    <div class="lib-row-stats">${kids?`<span>${kids} project${kids!==1?'s':''}</span>`:''}<span>${c.backlog} Backlog</span><span>${c.soon} Soon</span><span>${c.scheduled} Scheduled</span><span>${c.completed} Completed</span></div>`;
-  el.onclick=()=>openProjectDetail(p.id, opts.from||null);
+    <div class="lib-row-main">${FOLDER_ICON}<span class="lib-row-title">${esc(f.name)}</span><span class="row-chevron">›</span></div>
+    <div class="lib-row-preview">${ps.length ? ps.map(p=>esc(p.name)).join(' · ') : 'Empty'}${week?' · '+fmtDurLong(week)+' this week':''}</div>`;
+  el.onclick=()=>openFolder(f.id);
+  return el;
+}
+function makeProjectLibRow(p){
+  const c = projectTaskCounts(p.id);
+  const el=document.createElement('div');
+  el.className='lib-row'; el.setAttribute('role','button'); el.setAttribute('tabindex','0');
+  el.innerHTML=`
+    <div class="lib-row-main"><span class="dot-tag" style="background:${p.color}"></span><span class="lib-row-title">${esc(p.name)}</span></div>
+    <div class="lib-row-stats"><span>${c.backlog} Backlog</span><span>${c.soon} Soon</span><span>${c.scheduled} Scheduled</span><span>${c.completed} Completed</span></div>`;
+  el.onclick=()=>openProjectDetail(p.id, folderViewId && activeView==='folder' ? folderViewId : null);
   return el;
 }
 function makeHabitLibRow(h){
@@ -2124,15 +2161,16 @@ function renderLibrary(){
   jr.onclick=()=>openJournalView();
   jRow.appendChild(jr);
   const projList=document.getElementById('libProjectsList'); projList.innerHTML='';
-  orderedActiveProjects().forEach(({p,sub})=>projList.appendChild(makeProjectLibRow(p, {sub})));
-  if(!activeProjects().length) projList.innerHTML='<div class="empty-line">No projects yet.</div>';
+  folders.forEach(f=>projList.appendChild(makeFolderLibRow(f)));
+  looseProjects().forEach(p=>projList.appendChild(makeProjectLibRow(p)));
+  if(!activeProjects().length && !folders.length) projList.innerHTML='<div class="empty-line">No projects yet.</div>';
   const archived = projects.filter(p=>p.archived);
   if(archived.length){
     const tog=document.createElement('div'); tog.className='lib-archived-toggle'; tog.setAttribute('role','button'); tog.setAttribute('tabindex','0');
     tog.textContent=(libShowArchived?'Hide':'Show')+' archived ('+archived.length+')';
     tog.onclick=()=>{ libShowArchived=!libShowArchived; renderLibrary(); };
     projList.appendChild(tog);
-    if(libShowArchived) archived.forEach(p=>{ const r=makeProjectLibRow(p, {label:projectLabel(p)}); r.classList.add('archived'); projList.appendChild(r); });
+    if(libShowArchived) archived.forEach(p=>{ const r=makeProjectLibRow(p); r.classList.add('archived'); projList.appendChild(r); });
   }
   const habList=document.getElementById('libHabitsList'); habList.innerHTML='';
   habits.forEach(h=>habList.appendChild(makeHabitLibRow(h)));
@@ -2362,31 +2400,20 @@ function clearJournalDay(){
 }
 
 // ═══ SECTION: PROJECT DETAIL ═══
-// fromPid: the group page this was opened from, so Back returns there.
-function openProjectDetail(pid, fromPid){
-  pdProjectId=pid; pdBucket='backlog'; pdFromId=fromPid||null;
+// fromFolderId: opened from that folder's page, so Back returns there.
+function openProjectDetail(pid, fromFolderId){
+  pdProjectId=pid; pdBucket='backlog'; pdFromFolderId=fromFolderId||null;
   switchView('project-detail');
-  window.scrollTo(0,0);
 }
 function pdGoBack(){
-  const from = pdFromId && projects.find(x=>x.id===pdFromId);
-  if(from) openProjectDetail(from.id); else goBack();
+  if(pdFromFolderId && folders.find(f=>f.id===pdFromFolderId)) openFolder(pdFromFolderId);
+  else goBack();
 }
 function renderProjectDetail(){
   const p = projects.find(x=>x.id===pdProjectId); if(!p) return;
   document.getElementById('pdTitle').textContent = p.name + (p.archived?' (archived)':'');
-  const from = pdFromId && projects.find(x=>x.id===pdFromId);
-  document.getElementById('pdBackBtn').textContent = '‹ '+(from?from.name:'Library');
-  const par = projectParent(p), parEl=document.getElementById('pdParent');
-  parEl.textContent = par ? par.name : '';
-  parEl.style.display = par && (!from || from.id!==par.id) ? '' : 'none';
-  parEl.onclick = par ? ()=>openProjectDetail(par.id) : null;
-  const kids = projectChildren(p.id).filter(k=>!k.archived || p.archived);
-  const subWrap=document.getElementById('pdSubWrap'), subList=document.getElementById('pdSubList');
-  subWrap.style.display = !p.parentId && kids.length ? '' : 'none';
-  document.getElementById('pdAddSubBtn').style.display = !p.parentId && !kids.length && !p.archived ? '' : 'none';
-  subList.innerHTML='';
-  kids.forEach(k=>subList.appendChild(makeProjectLibRow(k, {sub:false, from:p.id})));
+  const fromF = pdFromFolderId && folders.find(f=>f.id===pdFromFolderId);
+  document.getElementById('pdBackBtn').textContent = '‹ '+(fromF?fromF.name:'Library');
   const total=projectSpentMin(p.id), week=projectSpentMin(p.id, reviewRange('week',0).start);
   const timeEl=document.getElementById('pdTime');
   timeEl.textContent = total ? fmtDurLong(week)+' this week · '+fmtDurLong(total)+' total' : 'No time logged yet';
@@ -2400,8 +2427,7 @@ function renderProjectDetail(){
     stats.appendChild(b);
   });
   const list=document.getElementById('pdTaskList'); list.innerHTML='';
-  const ids = projectGroupIds(pdProjectId);
-  const filtered = tasks.filter(t=>ids.includes(t.projectId) && taskBucket(t)===pdBucket);
+  const filtered = tasks.filter(t=>t.projectId===pdProjectId && taskBucket(t)===pdBucket);
   if(!filtered.length) list.innerHTML='<div class="empty-line">Nothing here.</div>';
   else filtered.forEach(t=>list.appendChild(makeTaskRow(t)));
 }
@@ -2526,7 +2552,7 @@ function handleTaskDate(val){ selectedTaskDate=val; updateTaskDateBtn(); }
 function updateTaskProjectBtn(){
   const btn=document.getElementById('taskProjectBtn');
   const proj = projects.find(p=>p.id===selectedTaskProjectId);
-  btn.innerHTML = esc(proj?projectLabel(proj):'Uncategorized')+' <span class="caret">▾</span>';
+  btn.innerHTML = esc(proj?proj.name:'Uncategorized')+' <span class="caret">▾</span>';
   btn.classList.toggle('set', !!proj);
 }
 function renderTaskProjectMenu(){
@@ -2755,46 +2781,95 @@ function deleteBreakerConfirmed(){
   showToast('Breaker deleted');
 }
 
+// ═══ SECTION: FOLDERS ═══
+function openFolder(fid){ folderViewId=fid; switchView('folder'); }
+function renderFolder(){
+  const f=folders.find(x=>x.id===folderViewId); if(!f){ switchView('library'); return; }
+  document.getElementById('folderTitle').textContent=f.name;
+  const total=folderSpentMin(f.id), week=folderSpentMin(f.id, reviewRange('week',0).start);
+  document.getElementById('folderTime').textContent = total ? fmtDurLong(week)+' this week · '+fmtDurLong(total)+' total' : 'No time logged yet';
+  const list=document.getElementById('folderProjectList'); list.innerHTML='';
+  const ps=folderProjects(f.id);
+  if(!ps.length) list.innerHTML='<div class="empty-line">No projects in this folder yet.</div>';
+  ps.forEach(p=>{
+    const r=makeProjectLibRow(p), wk=projectSpentMin(p.id, reviewRange('week',0).start);
+    if(wk) r.querySelector('.lib-row-main').insertAdjacentHTML('beforeend', `<span class="row-time">${fmtDurLong(wk)}</span>`);
+    list.appendChild(r);
+  });
+}
+function openNewFolder(){
+  editFolderId=null;
+  document.getElementById('folderName').value='';
+  document.getElementById('folderSheetTitle').textContent='New folder';
+  document.getElementById('folderSaveBtn').textContent='Create';
+  document.getElementById('folderManageWrap').style.display='none';
+  openSheet('sheetFolder');
+  setTimeout(()=>document.getElementById('folderName').focus(),50);
+}
+function openEditFolder(fid){
+  const f=folders.find(x=>x.id===fid); if(!f) return;
+  editFolderId=fid;
+  document.getElementById('folderName').value=f.name;
+  document.getElementById('folderSheetTitle').textContent='Edit folder';
+  document.getElementById('folderSaveBtn').textContent='Save';
+  document.getElementById('folderManageWrap').style.display='';
+  openSheet('sheetFolder');
+}
+function saveFolder(){
+  const name=document.getElementById('folderName').value.trim();
+  if(!name){ document.getElementById('folderName').focus(); return false; }
+  const editing=editFolderId;
+  if(editing){ const f=folders.find(x=>x.id===editing); if(f) f.name=name; }
+  else folders.push({ id:'f'+Date.now(), name, createdAt:new Date().toISOString() });
+  saveAll(); closeSheet('sheetFolder'); renderCurrentView();
+  showToast(editing?'Folder updated':'Folder created');
+  return true;
+}
+// Deleting a folder keeps its projects; they move back out to the Library.
+function deleteFolderConfirmed(){
+  const fid=editFolderId, f=folders.find(x=>x.id===fid); if(!f) return;
+  const snap={ folders:JSON.stringify(folders), projects:JSON.stringify(projects) };
+  folders=folders.filter(x=>x.id!==fid);
+  projects.forEach(p=>{ if(p.folderId===fid) delete p.folderId; });
+  saveAll(); closeSheet('sheetFolder');
+  if(activeView==='folder') switchView('library'); else renderCurrentView();
+  showToast('Deleted folder "'+f.name+'"', ()=>{
+    folders=JSON.parse(snap.folders); projects=JSON.parse(snap.projects);
+    saveAll(); renderCurrentView();
+  });
+}
+
 // ═══ SECTION: PROJECT SHEET ═══
+function renderProjectFolderRow(){
+  document.getElementById('projectFolderWrap').style.display = folders.length ? '' : 'none';
+  document.getElementById('projectFolderRow').innerHTML =
+    `<button type="button" class="chip${!selectedProjectFolderId?' active':''}" onclick="pickProjectFolder(null)">None</button>` +
+    folders.map(f=>`<button type="button" class="chip${selectedProjectFolderId===f.id?' active':''}" onclick="pickProjectFolder('${f.id}')">${esc(f.name)}</button>`).join('');
+}
+function pickProjectFolder(fid){ selectedProjectFolderId=fid; renderProjectFolderRow(); }
 function renderProjectColorRow(){
   document.getElementById('projectColorRow').innerHTML = PROJECT_COLORS.map(c=>`<button type="button" class="chip" style="border-color:${c};color:${c};${c===selectedProjectColor?'background:'+c+'22;':''}" onclick="pickProjectColor('${c}')">●</button>`).join('');
 }
 function pickProjectColor(c){ selectedProjectColor=c; renderProjectColorRow(); }
-// Only top-level projects can hold sub-projects, and a project with sub-projects stays top level.
-function renderProjectParentRow(){
-  const row=document.getElementById('projectParentRow');
-  if(editProjectId && projectChildren(editProjectId).length){
-    row.innerHTML='<div class="empty-line" style="padding:0;">Has its own projects, so it stays at the top.</div>';
-    return;
-  }
-  const opts=activeProjects().filter(p=>!p.parentId && p.id!==editProjectId);
-  const cur=projects.find(p=>p.id===selectedProjectParentId);
-  if(cur && cur.archived) opts.push(cur);
-  row.innerHTML = `<button type="button" class="chip${!selectedProjectParentId?' active':''}" onclick="pickProjectParent(null)">Nothing (top level)</button>` +
-    opts.map(p=>`<button type="button" class="chip${selectedProjectParentId===p.id?' active':''}" onclick="pickProjectParent('${p.id}')">${esc(p.name)}</button>`).join('');
-}
-function pickProjectParent(pid){ selectedProjectParentId=pid; renderProjectParentRow(); }
-function openNewProject(parentId){
+function openNewProject(folderId){
   editProjectId=null; selectedProjectColor=PROJECT_COLORS[0];
-  selectedProjectParentId = typeof parentId==='string' ? parentId : null;
-  const par=projects.find(p=>p.id===selectedProjectParentId);
-  if(par) selectedProjectColor=par.color;
+  selectedProjectFolderId = typeof folderId==='string' ? folderId : null;
   document.getElementById('projectName').value='';
   document.getElementById('projectSheetTitle').textContent='New project';
   document.getElementById('projectSaveBtn').textContent='Create';
   document.getElementById('projectManageWrap').style.display='none';
-  renderProjectColorRow(); renderProjectParentRow();
+  renderProjectColorRow(); renderProjectFolderRow();
   openSheet('sheetProject');
 }
 function openEditProject(pid){
   const p=projects.find(x=>x.id===pid); if(!p) return;
-  editProjectId=pid; selectedProjectColor=p.color; selectedProjectParentId=p.parentId||null;
+  editProjectId=pid; selectedProjectColor=p.color; selectedProjectFolderId=projectFolder(p)?p.folderId:null;
   document.getElementById('projectName').value=p.name;
   document.getElementById('projectSheetTitle').textContent='Edit project';
   document.getElementById('projectSaveBtn').textContent='Save';
   document.getElementById('projectArchiveBtn').textContent=p.archived?'Unarchive project':'Archive project';
   document.getElementById('projectManageWrap').style.display='';
-  renderProjectColorRow(); renderProjectParentRow();
+  renderProjectColorRow(); renderProjectFolderRow();
   openSheet('sheetProject');
 }
 function toggleProjectArchived(){
@@ -2808,8 +2883,6 @@ function deleteProjectConfirmed(){
   const pid=editProjectId, p=projects.find(x=>x.id===pid); if(!p) return;
   const snap={ projects:JSON.stringify(projects), tasks:JSON.stringify(tasks), entries:JSON.stringify(entries) };
   projects=projects.filter(x=>x.id!==pid);
-  projects.forEach(x=>{ if(x.parentId===pid) delete x.parentId; });   // its sub-projects move to the top
-  if(pdFromId===pid) pdFromId=null;
   tasks.forEach(t=>{ if(t.projectId===pid) t.projectId=null; });
   entries.forEach(e=>{ if(e.projectId===pid) e.projectId=null; });
   if(activeSession && activeSession.projectId===pid){ activeSession.projectId=null; sv('focus2_activeSession', activeSession); }
@@ -2827,13 +2900,10 @@ function saveProject(){
   if(!name){ document.getElementById('projectName').focus(); return false; }
   if(editProjectId){
     const p=projects.find(x=>x.id===editProjectId);
-    if(p){
-      p.name=name; p.color=selectedProjectColor;
-      if(!projectChildren(p.id).length){ if(selectedProjectParentId) p.parentId=selectedProjectParentId; else delete p.parentId; }
-    }
+    if(p){ p.name=name; p.color=selectedProjectColor; if(selectedProjectFolderId) p.folderId=selectedProjectFolderId; else delete p.folderId; }
   } else {
     const np={ id:'p'+Date.now(), name, color:selectedProjectColor, createdAt:new Date().toISOString() };
-    if(selectedProjectParentId) np.parentId=selectedProjectParentId;
+    if(selectedProjectFolderId) np.folderId=selectedProjectFolderId;
     projects.push(np);
   }
   saveAll(); closeSheet('sheetProject'); renderCurrentView();
@@ -2907,7 +2977,7 @@ function renderCaptureExtra(){
           </div>
         </div>
         <div class="dropdown-field">
-          <button type="button" class="dropdown-btn${proj?' set':''}" onclick="event.stopPropagation();toggleCaptureProjectMenu()">${esc(proj?projectLabel(proj):'Uncategorized')} <span class="caret">▾</span></button>
+          <button type="button" class="dropdown-btn${proj?' set':''}" onclick="event.stopPropagation();toggleCaptureProjectMenu()">${esc(proj?proj.name:'Uncategorized')} <span class="caret">▾</span></button>
           <div class="dropdown-menu" id="captureProjectMenu" style="display:none;">
             <button type="button" onclick="setCaptureTaskProject(null)">Uncategorized</button>
             ${projectMenuItems('setCaptureTaskProject')}
@@ -3272,11 +3342,11 @@ function renderReview(){
 }
 
 // ═══ SECTION: NAV / TOAST / KEYBOARD ═══
-const VIEWS=['now','timeline','plan','library','project-detail','ideas','journal','review'];
+const VIEWS=['now','timeline','plan','library','folder','project-detail','ideas','journal','review'];
 const NAV_VIEWS=['now','timeline','plan','library'];
 // Sub-views and the tab they go back to. Entering one pushes a history entry,
 // so the phone's own back gesture/button returns to the tab as well.
-const SUB_VIEWS={ 'project-detail':'library', ideas:'library', journal:'library', review:'timeline' };
+const SUB_VIEWS={ folder:'library', 'project-detail':'library', ideas:'library', journal:'library', review:'timeline' };
 let ignoreNextPop=false;
 function switchView(v, fromHistory){
   if(!fromHistory){
@@ -3364,6 +3434,7 @@ function renderView(v){
   else if(v==='plan') renderPlan();
   else if(v==='library') renderLibrary();
   else if(v==='project-detail') renderProjectDetail();
+  else if(v==='folder') renderFolder();
   else if(v==='ideas') renderIdeas();
   else if(v==='journal') renderJournal();
   else if(v==='review') renderReview();
@@ -3409,7 +3480,7 @@ function importFilePicked(input){
     if(!keys.length){ showToast('That file isn’t a Focus export'); return; }
     pendingImport={ data, keys };
     const n=k=>Array.isArray(data[k]) ? data[k].length : 0;
-    const parts=[[n('focus2_tasks'),'task'],[n('focus2_projects'),'project'],[n('focus2_habits'),'habit'],[n('focus2_breakers'),'breaker'],[n('focus2_ideas'),'idea'],[n('focus2_entries'),'time entry','time entries']]
+    const parts=[[n('focus2_tasks'),'task'],[n('focus2_folders'),'folder'],[n('focus2_projects'),'project'],[n('focus2_habits'),'habit'],[n('focus2_breakers'),'breaker'],[n('focus2_ideas'),'idea'],[n('focus2_entries'),'time entry','time entries']]
       .concat([[data.focus2_journal && typeof data.focus2_journal==='object' ? Object.keys(data.focus2_journal).length : 0,'journal day']])
       .filter(([c])=>c).map(([c,one,many])=>c+' '+(c===1?one:(many||one+'s')));
     const when=obj.exportedAt ? new Date(obj.exportedAt) : null;
