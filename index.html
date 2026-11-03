@@ -504,11 +504,6 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
         <div id="focusPanel"></div>
       </div>
 
-      <div class="now-section" id="nowMissedSection" style="display:none;">
-        <div class="now-label">Missed <button class="text-btn now-resort" onclick="moveAllMissedToToday()">Move all to today</button></div>
-        <div id="nowMissedList" class="card"></div>
-      </div>
-
       <div class="now-section">
         <div class="now-label">Tasks <button class="text-btn now-resort" id="nowTasksResort" style="display:none;" onclick="resetDayOrder(today())">Sort by time</button></div>
         <div id="nowTodayList" class="card"></div>
@@ -527,6 +522,11 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
       <div class="now-section" id="nowJournalSection" style="display:none;">
         <div class="now-label">Journal</div>
         <div id="nowJournal" class="card"></div>
+      </div>
+
+      <div class="now-section" id="nowMissedSection" style="display:none;">
+        <div class="now-label">Missed <button class="text-btn now-resort" onclick="moveAllMissedToToday()">Move all to today</button></div>
+        <div id="nowMissedList" class="card"></div>
       </div>
 
       <div class="now-section">
