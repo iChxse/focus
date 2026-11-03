@@ -187,7 +187,8 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .check-row.dragging{ position:relative; z-index:5; background:var(--bg-hover); box-shadow:0 8px 24px rgba(0,0,0,.45); transition:none; }
 /* Press-and-hold reorder (Library lists, folder page, ideas) */
 [data-reorder]{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
-[data-reorder].reordering{ position:relative; z-index:5; background:var(--bg-hover); box-shadow:0 6px 20px rgba(0,0,0,.4); }
+[data-reorder].reordering{ position:relative; z-index:5; background:var(--bg-hover); box-shadow:0 10px 28px rgba(0,0,0,.45); }
+[data-reorder].reordering.settling{ box-shadow:0 0 0 rgba(0,0,0,0); }
 .now-resort{ margin-left:auto; font-size:12px; text-transform:none; letter-spacing:0; color:var(--accent); }
 .missed-move{ flex-shrink:0; font-size:12.5px; font-weight:600; color:var(--ink-dim); padding:5px 10px; margin:-4px -4px -4px 0; border:1px solid var(--line); border-radius:999px; }
 .missed-move:active{ color:var(--ink); border-color:var(--ink-faint); }
@@ -1402,7 +1403,7 @@ function makeTaskRow(tk, opts={}){
     </div>${opts.missed?`<button type="button" class="missed-move" onclick="moveMissedToToday('${tk.id}',event)">Today</button>`:''}${opts.handle?'<span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>':''}`;
   el.dataset.id=tk.id;
   el.addEventListener('click', e=>{ if(e.target.closest('.check-dot,.drag-handle,.missed-move')) return; openTaskDetailSheet(tk.id); });
-  if(opts.handle) el.querySelector('.drag-handle').addEventListener('pointerdown', e=>startTaskDrag(e, el, opts.dateIso));
+  if(opts.handle){ const iso=opts.dateIso; makeReorderable(el, tk.id, 'today', ids=>{ dayOrder[iso]=ids; }, { handle: el.querySelector('.drag-handle') }); }
   return el;
 }
 function makeEntryRow(e){
@@ -1495,7 +1496,7 @@ function renderTodayHabits(){
   const list=document.getElementById('nowHabitsList');
   list.innerHTML='';
   if(!scheduled.length) list.innerHTML='<div class="empty-line">No habits scheduled today.</div>';
-  else scheduled.forEach(h=>list.appendChild(makeHabitRow(h,t)));
+  else scheduled.forEach(h=>{ const r=makeHabitRow(h,t); list.appendChild(r); makeReorderable(r, h.id, 'habit', ids=>moveIntoOrder(habits, ids)); });
 }
 function renderTodayBreakers(){
   const t=today();
@@ -1919,147 +1920,146 @@ function tickFocusDisplays(){
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden && activeSession) tickFocusDisplays(); });
 
-// ═══ SECTION: REORDER TODAY'S TASKS ═══
-// Drag by the handle. Rows move live; the new order of open tasks is saved on release.
-function startTaskDrag(e, row, dateIso){
-  e.preventDefault(); e.stopPropagation();
-  const list=row.parentElement;
-  row.classList.add('dragging');
-  const startY=e.clientY;
-  let offset=0;
-  const move=ev=>{
-    offset=ev.clientY-startY;
-    row.style.transform=`translateY(${offset}px)`;
-    const rows=[...list.querySelectorAll('.check-row[data-id]:not(.done)')].filter(r=>r!==row);
-    const mid=row.getBoundingClientRect().top+row.offsetHeight/2;
-    const before=rows.find(r=>{ const b=r.getBoundingClientRect(); return mid < b.top+b.height/2; });
-    const prevTop=row.getBoundingClientRect().top;
-    if(before && before!==row.nextElementSibling) list.insertBefore(row, before);
-    else if(!before){ const last=rows[rows.length-1]; if(last && last.nextElementSibling!==row) last.after(row); }
-    // Keep the row under the finger after the DOM move.
-    const shift=row.getBoundingClientRect().top-prevTop;
-    if(shift){ offset-=shift; row.style.transform=`translateY(${offset}px)`; }
-  };
-  const end=()=>{
-    window.removeEventListener('pointermove',move);
-    window.removeEventListener('pointerup',end);
-    window.removeEventListener('pointercancel',end);
-    row.classList.remove('dragging'); row.style.transform='';
-    dayOrder[dateIso]=[...list.querySelectorAll('.check-row[data-id]:not(.done)')].map(r=>r.dataset.id);
-    saveAll(); renderCurrentView();
-  };
-  // Listen on window: moving the row in the DOM would drop pointer capture on the handle.
-  window.addEventListener('pointermove',move);
-  window.addEventListener('pointerup',end);
-  window.addEventListener('pointercancel',end);
-}
-function resetDayOrder(iso){
-  const prev=dayOrder[iso];
-  delete dayOrder[iso]; saveAll(); renderCurrentView();
-  showToast('Sorted by time', ()=>{ dayOrder[iso]=prev; saveAll(); renderCurrentView(); });
-}
-
-// ═══ SECTION: REORDER LISTS (press and hold) ═══
-// Hold a row for a moment, then drag it up or down. The other rows slide out of the way,
-// and the new order is saved when you let go. Rows only move among rows of the same group.
-let reorderActive=false;
+// ═══ SECTION: REORDER (drag rows into a new order) ═══
+// Library lists, folder pages and Ideas: press and hold a row, then drag.
+// Today's tasks: drag by the ⋮⋮ handle straight away.
+// While dragging, the row follows the finger and the rows it passes slide out of its way,
+// so the list always shows where it will land. Letting go settles it there and saves.
+// Nothing is moved in the page until the drop, which keeps touch tracking reliable on iPhone.
+let reorderActive=false, lastTouchAt=0;
+document.addEventListener('touchstart', ()=>{ lastTouchAt=Date.now(); }, {capture:true, passive:true});
 function moveIntoOrder(arr, ids){
   // Put the items named in ids into the slots those items already hold, in the order of ids.
   const want=new Set(ids), slots=[], byId={};
   arr.forEach((x,i)=>{ if(want.has(x.id)){ slots.push(i); byId[x.id]=x; } });
   ids.forEach((id,k)=>{ if(byId[id] && slots[k]!=null) arr[slots[k]]=byId[id]; });
 }
-function makeHoldReorderable(row, id, group, onDrop){
+function resetDayOrder(iso){
+  const prev=dayOrder[iso];
+  delete dayOrder[iso]; saveAll(); renderCurrentView();
+  showToast('Sorted by time', ()=>{ dayOrder[iso]=prev; saveAll(); renderCurrentView(); });
+}
+// row: the element; id: its item id; group: rows that reorder together share this;
+// onDrop(ids): gets the group's ids in their new order. opts.handle: drag from this element at once.
+function makeReorderable(row, id, group, onDrop, opts={}){
   row.dataset.id=id; row.dataset.reorder=group;
-  row.addEventListener('contextmenu', e=>e.preventDefault());
-  row.addEventListener('pointerdown', e=>{
-    if(e.button>0 || reorderActive) return;
+  const grip=opts.handle || row;
+  if(!opts.handle) row.addEventListener('contextmenu', e=>e.preventDefault());
+  let drag=null;   // the gesture in progress
+
+  function begin(y){
+    if(reorderActive) return false;
     const list=row.parentElement;
-    const peers=()=>[...list.querySelectorAll(`:scope > [data-reorder="${group}"]`)];
-    if(peers().length<2) return;
-    const x0=e.clientX, y0=e.clientY, scroll0=window.scrollY;
-    let lastY=y0, offset=0, raf=0, dragging=false;
-    const hold=setTimeout(start, 400);
-    const pre=ev=>{ if(Math.hypot(ev.clientX-x0, ev.clientY-y0)>8) stopHold(); };
-    // Registered before any movement so that, once dragging, the page doesn't scroll instead.
-    const block=ev=>{ if(dragging) ev.preventDefault(); };
-    function stopHold(){
-      clearTimeout(hold);
-      window.removeEventListener('pointermove',pre);
-      window.removeEventListener('pointerup',stopHold);
-      window.removeEventListener('pointercancel',stopHold);
-      if(!dragging) document.removeEventListener('touchmove',block);
+    const peers=[...list.querySelectorAll(`:scope > [data-reorder="${group}"]`)];
+    if(peers.length<2) return false;
+    drag={ y0:y, lastY:y, scroll0:window.scrollY, list, peers, from:peers.indexOf(row), started:false, hold:0, raf:0, to:0, shiftPx:0 };
+    return true;
+  }
+  function start(){
+    const d=drag; d.started=true; reorderActive=true;
+    // Measure every row once, where it sits now.
+    const listTop=d.list.getBoundingClientRect().top;
+    d.slots=d.peers.map(r=>{ const b=r.getBoundingClientRect(); return { top:b.top-listTop, h:b.height }; });
+    d.h=d.slots[d.from].h; d.to=d.from;
+    d.minOff=d.slots[0].top-d.slots[d.from].top;
+    d.maxOff=d.slots[d.slots.length-1].top+d.slots[d.slots.length-1].h-d.h-d.slots[d.from].top;
+    d.peers.forEach(r=>{ if(r!==row) r.style.transition='transform .2s cubic-bezier(.2,.8,.2,1)'; });
+    row.style.transition='box-shadow .2s ease, background .2s ease';
+    row.classList.add('reordering');
+    try{ navigator.vibrate && navigator.vibrate(8); }catch{}
+    d.raf=requestAnimationFrame(edgeScroll);
+    update();
+  }
+  function update(){
+    const d=drag; if(!d || !d.started) return;
+    let off=(d.lastY-d.y0)+(window.scrollY-d.scroll0);
+    off=Math.max(d.minOff, Math.min(d.maxOff, off));
+    const mid=d.slots[d.from].top+off+d.h/2;
+    // Rows the dragged row has passed slide up (or down) by its height.
+    let to=d.from, shiftPx=0;
+    d.peers.forEach((r,i)=>{
+      if(i===d.from) return;
+      const s=d.slots[i], pmid=s.top+s.h/2;
+      let ty=0;
+      if(i>d.from && mid>pmid){ ty=-d.h; to++; shiftPx+=s.h; }
+      else if(i<d.from && mid<pmid){ ty=d.h; to--; shiftPx-=s.h; }
+      r.style.transform=ty?`translateY(${ty}px)`:'';
+    });
+    d.to=to; d.shiftPx=shiftPx;
+    row.style.transform=`translateY(${off}px) scale(1.02)`;
+  }
+  function edgeScroll(){
+    const d=drag; if(!d) return;
+    // Scroll when the finger is dragged toward the top of the screen or the tab bar.
+    const nav=document.querySelector('.nav'), top=60;
+    const bottom=(nav ? nav.getBoundingClientRect().top : window.innerHeight)-40;
+    const moved=d.lastY-d.y0;
+    const v = d.lastY<top && moved<-12 ? -Math.min(12, Math.ceil((top-d.lastY)/5))
+            : d.lastY>bottom && moved>12 ? Math.min(12, Math.ceil((d.lastY-bottom)/5)) : 0;
+    if(v){ const was=window.scrollY; window.scrollBy(0,v); if(window.scrollY!==was) update(); }
+    d.raf=requestAnimationFrame(edgeScroll);
+  }
+  function finish(){
+    const d=drag; drag=null; if(!d) return;
+    clearTimeout(d.hold);
+    if(!d.started) return;
+    cancelAnimationFrame(d.raf);
+    // The tap that ends a drag shouldn't also open the row.
+    const eat=ev=>{ ev.stopPropagation(); ev.preventDefault(); };
+    window.addEventListener('click',eat,true);
+    setTimeout(()=>window.removeEventListener('click',eat,true),350);
+    // Settle into the gap, then save and redraw in the new order.
+    row.style.transition='transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s ease, background .2s ease';
+    row.style.transform=`translateY(${d.shiftPx}px)`;
+    row.classList.add('settling');
+    setTimeout(()=>{
+      row.classList.remove('reordering','settling');
+      const ids=d.peers.map(r=>r.dataset.id);
+      const [moved]=ids.splice(d.from,1); ids.splice(d.to,0,moved);
+      if(d.to!==d.from){ onDrop(ids); saveAll(); }
+      d.peers.forEach(r=>{ r.style.transition=''; r.style.transform=''; });
+      reorderActive=false;
+      if(d.to!==d.from) renderCurrentView();
+    },200);
+  }
+
+  // Touch (phone). Touch events stay with the row for the whole gesture.
+  grip.addEventListener('touchstart', e=>{
+    if(e.touches.length!==1 || !begin(e.touches[0].clientY)) return;
+    const x0=e.touches[0].clientX;
+    drag.x0=x0;
+    if(opts.handle){ e.stopPropagation(); start(); }
+    else drag.hold=setTimeout(()=>{ if(drag) start(); }, 400);
+  }, {passive:true});
+  grip.addEventListener('touchmove', e=>{
+    const d=drag; if(!d) return;
+    const t=e.touches[0];
+    if(!d.started){
+      // Moved before the hold finished: it's a scroll, let it be.
+      if(Math.hypot(t.clientX-d.x0, t.clientY-d.y0)>8){ clearTimeout(d.hold); drag=null; }
+      return;
     }
-    window.addEventListener('pointermove',pre);
-    window.addEventListener('pointerup',stopHold);
-    window.addEventListener('pointercancel',stopHold);
-    document.addEventListener('touchmove',block,{passive:false});
-    function start(){
-      dragging=true; stopHold(); reorderActive=true;
-      list.style.position='relative';   // so offsetTop is measured within the list
-      row.classList.add('reordering');
-      try{ navigator.vibrate && navigator.vibrate(8); }catch{}
-      window.addEventListener('pointermove',move);
-      window.addEventListener('pointerup',end);
-      window.addEventListener('pointercancel',end);
-      raf=requestAnimationFrame(edgeScroll);
-    }
-    function place(){
-      // Finger travel plus any page scroll since the press, kept inside the list.
-      offset=(lastY-y0)+(window.scrollY-scroll0);
-      const minOff=-row.offsetTop, maxOff=list.clientHeight-row.offsetTop-row.offsetHeight;
-      offset=Math.max(minOff, Math.min(maxOff, offset));
-      const others=peers().filter(r=>r!==row);
-      const mid=row.offsetTop+offset+row.offsetHeight/2;
-      const before=others.find(r=>mid < r.offsetTop+r.offsetHeight/2);
-      const target = before || others[others.length-1].nextElementSibling;
-      if(target!==row.nextElementSibling && target!==row){
-        const tops=new Map(others.map(r=>[r, r.getBoundingClientRect().top]));
-        const prevTop=row.offsetTop;
-        if(before) list.insertBefore(row, before); else others[others.length-1].after(row);
-        offset-=row.offsetTop-prevTop;
-        // Slide the rows that moved from where they were to their new spot.
-        others.forEach(r=>{
-          const dy=tops.get(r)-r.getBoundingClientRect().top; if(!dy) return;
-          r.style.transition='none'; r.style.transform=`translateY(${dy}px)`;
-          r.getBoundingClientRect();
-          r.style.transition='transform .18s ease'; r.style.transform='';
-        });
-      }
-      row.style.transform=`translateY(${offset}px)`;
-    }
-    function move(ev){ lastY=ev.clientY; place(); }
-    function edgeScroll(){
-      // Scroll when the finger is dragged toward the top of the screen or the tab bar.
-      // Only after it has moved that way, so holding a row low on the screen stays put.
-      const nav=document.querySelector('.nav'), top=60;
-      const bottom=(nav ? nav.getBoundingClientRect().top : window.innerHeight)-40;
-      const moved=lastY-y0;
-      const v = lastY<top && moved<-12 ? -Math.min(12, Math.ceil((top-lastY)/5))
-              : lastY>bottom && moved>12 ? Math.min(12, Math.ceil((lastY-bottom)/5)) : 0;
-      if(v){ const before=window.scrollY; window.scrollBy(0,v); if(window.scrollY!==before) place(); }
-      raf=requestAnimationFrame(edgeScroll);
-    }
-    function end(){
-      cancelAnimationFrame(raf);
-      window.removeEventListener('pointermove',move);
-      window.removeEventListener('pointerup',end);
-      window.removeEventListener('pointercancel',end);
-      document.removeEventListener('touchmove',block);
-      // The tap that ends a drag shouldn't also open the row.
-      const eat=ev=>{ ev.stopPropagation(); ev.preventDefault(); };
-      window.addEventListener('click',eat,true);
-      setTimeout(()=>window.removeEventListener('click',eat,true),350);
-      onDrop(peers().map(r=>r.dataset.id));
-      saveAll();
-      row.style.transition='transform .18s ease, box-shadow .18s ease';
-      row.style.transform='';
-      setTimeout(()=>{
-        row.classList.remove('reordering'); row.style.transition='';
-        peers().forEach(r=>{ r.style.transition=''; r.style.transform=''; });
-        reorderActive=false;
-      },190);
-    }
+    e.preventDefault();
+    d.lastY=t.clientY; update();
+  }, {passive:false});
+  grip.addEventListener('touchend', finish);
+  grip.addEventListener('touchcancel', finish);
+
+  // Mouse (desktop): hold, or grab the handle, then drag.
+  grip.addEventListener('mousedown', e=>{
+    // Phones send a fake mousedown after a tap; only real mice drag this way.
+    if(e.button!==0 || Date.now()-lastTouchAt<1000 || !begin(e.clientY)) return;
+    drag.x0=e.clientX;
+    if(opts.handle){ e.preventDefault(); start(); }
+    else drag.hold=setTimeout(()=>{ if(drag) start(); }, 400);
+    const mm=ev=>{
+      const d=drag; if(!d) return;
+      if(!d.started){ if(Math.hypot(ev.clientX-d.x0, ev.clientY-d.y0)>8){ clearTimeout(d.hold); drag=null; } return; }
+      d.lastY=ev.clientY; update();
+    };
+    const mu=()=>{ window.removeEventListener('mousemove',mm); window.removeEventListener('mouseup',mu); finish(); };
+    window.addEventListener('mousemove',mm);
+    window.addEventListener('mouseup',mu);
   });
 }
 
@@ -2400,8 +2400,8 @@ function renderLibrary(){
   jr.onclick=()=>openJournalView();
   jRow.appendChild(jr);
   const projList=document.getElementById('libProjectsList'); projList.innerHTML='';
-  folders.forEach(f=>{ const r=makeFolderLibRow(f); projList.appendChild(r); makeHoldReorderable(r, f.id, 'folder', ids=>moveIntoOrder(folders, ids)); });
-  looseProjects().forEach(p=>{ const r=makeProjectLibRow(p); projList.appendChild(r); makeHoldReorderable(r, p.id, 'project', ids=>moveIntoOrder(projects, ids)); });
+  folders.forEach(f=>{ const r=makeFolderLibRow(f); projList.appendChild(r); makeReorderable(r, f.id, 'folder', ids=>moveIntoOrder(folders, ids)); });
+  looseProjects().forEach(p=>{ const r=makeProjectLibRow(p); projList.appendChild(r); makeReorderable(r, p.id, 'project', ids=>moveIntoOrder(projects, ids)); });
   if(!activeProjects().length && !folders.length) projList.innerHTML='<div class="empty-line">No projects yet.</div>';
   const archived = projects.filter(p=>p.archived);
   if(archived.length){
@@ -2412,9 +2412,9 @@ function renderLibrary(){
     if(libShowArchived) archived.forEach(p=>{ const r=makeProjectLibRow(p); r.classList.add('archived'); projList.appendChild(r); });
   }
   const habList=document.getElementById('libHabitsList'); habList.innerHTML='';
-  habits.forEach(h=>{ const r=makeHabitLibRow(h); habList.appendChild(r); makeHoldReorderable(r, h.id, 'habit', ids=>moveIntoOrder(habits, ids)); });
+  habits.forEach(h=>{ const r=makeHabitLibRow(h); habList.appendChild(r); makeReorderable(r, h.id, 'habit', ids=>moveIntoOrder(habits, ids)); });
   const brkList=document.getElementById('libBreakersList'); brkList.innerHTML='';
-  breakers.forEach(b=>{ const r=makeBreakerLibRow(b); brkList.appendChild(r); makeHoldReorderable(r, b.id, 'breaker', ids=>moveIntoOrder(breakers, ids)); });
+  breakers.forEach(b=>{ const r=makeBreakerLibRow(b); brkList.appendChild(r); makeReorderable(r, b.id, 'breaker', ids=>moveIntoOrder(breakers, ids)); });
   const unschedList=document.getElementById('libUnscheduledList'); unschedList.innerHTML='';
   const unsched = tasks.filter(tk=>!tk.completed && !tk.scheduledDate);
   if(!unsched.length) unschedList.innerHTML='<div class="empty-line">Nothing unscheduled.</div>';
@@ -2457,7 +2457,7 @@ function renderIdeas(){
     el.innerHTML=`<div class="idea-text">${esc(i.text)}</div><div class="idea-time">${fmtIdeaTime(i.createdAt)}</div>`;
     el.onclick=()=>openIdeaSheet(i.id);
     list.appendChild(el);
-    makeHoldReorderable(el, i.id, 'idea', ids=>moveIntoOrder(ideas, ids));
+    makeReorderable(el, i.id, 'idea', ids=>moveIntoOrder(ideas, ids));
   });
 }
 function openIdeaSheet(id){
@@ -3035,7 +3035,7 @@ function renderFolder(){
     const r=makeProjectLibRow(p), wk=projectSpentMin(p.id, reviewRange('week',0).start);
     if(wk) r.querySelector('.lib-row-main').insertAdjacentHTML('beforeend', `<span class="row-time">${fmtDurLong(wk)}</span>`);
     list.appendChild(r);
-    makeHoldReorderable(r, p.id, 'project', ids=>moveIntoOrder(projects, ids));
+    makeReorderable(r, p.id, 'project', ids=>moveIntoOrder(projects, ids));
   });
 }
 function openNewFolder(){
