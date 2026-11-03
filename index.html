@@ -1979,7 +1979,7 @@ function makeHoldReorderable(row, id, group, onDrop){
     if(peers().length<2) return;
     const x0=e.clientX, y0=e.clientY, scroll0=window.scrollY;
     let lastY=y0, offset=0, raf=0, dragging=false;
-    const hold=setTimeout(start, 350);
+    const hold=setTimeout(start, 400);
     const pre=ev=>{ if(Math.hypot(ev.clientX-x0, ev.clientY-y0)>8) stopHold(); };
     // Registered before any movement so that, once dragging, the page doesn't scroll instead.
     const block=ev=>{ if(dragging) ev.preventDefault(); };
@@ -2030,9 +2030,13 @@ function makeHoldReorderable(row, id, group, onDrop){
     }
     function move(ev){ lastY=ev.clientY; place(); }
     function edgeScroll(){
-      // Scroll when the finger nears the top, or the tab bar at the bottom.
-      const top=70, bottom=window.innerHeight-130;
-      const v = lastY<top ? -Math.ceil((top-lastY)/6) : lastY>bottom ? Math.ceil((lastY-bottom)/6) : 0;
+      // Scroll when the finger is dragged toward the top of the screen or the tab bar.
+      // Only after it has moved that way, so holding a row low on the screen stays put.
+      const nav=document.querySelector('.nav'), top=60;
+      const bottom=(nav ? nav.getBoundingClientRect().top : window.innerHeight)-40;
+      const moved=lastY-y0;
+      const v = lastY<top && moved<-12 ? -Math.min(12, Math.ceil((top-lastY)/5))
+              : lastY>bottom && moved>12 ? Math.min(12, Math.ceil((lastY-bottom)/5)) : 0;
       if(v){ const before=window.scrollY; window.scrollBy(0,v); if(window.scrollY!==before) place(); }
       raf=requestAnimationFrame(edgeScroll);
     }
@@ -2045,7 +2049,7 @@ function makeHoldReorderable(row, id, group, onDrop){
       // The tap that ends a drag shouldn't also open the row.
       const eat=ev=>{ ev.stopPropagation(); ev.preventDefault(); };
       window.addEventListener('click',eat,true);
-      setTimeout(()=>window.removeEventListener('click',eat,true),60);
+      setTimeout(()=>window.removeEventListener('click',eat,true),350);
       onDrop(peers().map(r=>r.dataset.id));
       saveAll();
       row.style.transition='transform .18s ease, box-shadow .18s ease';
