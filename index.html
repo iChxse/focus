@@ -189,6 +189,8 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 [data-reorder]{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
 [data-reorder].reordering{ position:relative; z-index:5; background:var(--bg-hover); box-shadow:0 6px 20px rgba(0,0,0,.4); }
 .now-resort{ margin-left:auto; font-size:12px; text-transform:none; letter-spacing:0; color:var(--accent); }
+.missed-move{ flex-shrink:0; font-size:12.5px; font-weight:600; color:var(--ink-dim); padding:5px 10px; margin:-4px -4px -4px 0; border:1px solid var(--line); border-radius:999px; }
+.missed-move:active{ color:var(--ink); border-color:var(--ink-faint); }
 .pd-time{ font-size:13px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
 .dot-tag{ width:7px; height:7px; border-radius:50%; display:inline-block; flex-shrink:0; }
 
@@ -520,6 +522,11 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
       <div class="now-section" id="nowJournalSection" style="display:none;">
         <div class="now-label">Journal</div>
         <div id="nowJournal" class="card"></div>
+      </div>
+
+      <div class="now-section" id="nowMissedSection" style="display:none;">
+        <div class="now-label">Missed <button class="text-btn now-resort" onclick="moveAllMissedToToday()">Move all to today</button></div>
+        <div id="nowMissedList" class="card"></div>
       </div>
 
       <div class="now-section">
@@ -1378,6 +1385,7 @@ function makeTaskRow(tk, opts={}){
     const spent=taskSpentMin(tk.id);
     if(spent) metaParts.push(fmtDurLong(spent));
   } else {
+    if(opts.missed) metaParts.push(missedDayLabel(tk.scheduledDate));
     if(tk.time) metaParts.push(tk.time);
     if(proj) metaParts.push(proj.name);
     const spent=taskSpentMin(tk.id);
@@ -1391,9 +1399,9 @@ function makeTaskRow(tk, opts={}){
     <div class="check-body">
       <div class="check-title">${esc(tk.title)}</div>
       ${metaParts.length?`<div class="check-meta">${proj?`<span class="dot-tag" style="background:${proj.color}"></span>`:''}${esc(metaParts.join(' · '))}</div>`:''}
-    </div>${opts.handle?'<span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>':''}`;
+    </div>${opts.missed?`<button type="button" class="missed-move" onclick="moveMissedToToday('${tk.id}',event)">Today</button>`:''}${opts.handle?'<span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>':''}`;
   el.dataset.id=tk.id;
-  el.addEventListener('click', e=>{ if(e.target.closest('.check-dot,.drag-handle')) return; openTaskDetailSheet(tk.id); });
+  el.addEventListener('click', e=>{ if(e.target.closest('.check-dot,.drag-handle,.missed-move')) return; openTaskDetailSheet(tk.id); });
   if(opts.handle) el.querySelector('.drag-handle').addEventListener('pointerdown', e=>startTaskDrag(e, el, opts.dateIso));
   return el;
 }
@@ -1425,6 +1433,7 @@ function renderNow(){
   document.getElementById('nowGreeting').textContent = hr<12?'Good morning.':hr<17?'Good afternoon.':'Good evening.';
 
   renderFocusIndicator();
+  renderMissedTasks();
   renderTodayTasks();
   renderTodayHabits();
   renderTodayBreakers();
@@ -1444,6 +1453,41 @@ function renderTodayTasks(){
     ? `<div class="empty-line">All done for today.</div>`
     : `<div class="empty-line">Nothing scheduled — maybe <span class="link" onclick="switchView('plan')">plan the day</span>.</div>`;
   else todayTasks.forEach(tk=>list.appendChild(makeTaskRow(tk, { handle: canReorder && !tk.completed, dateIso:t })));
+}
+// Missed: scheduled for an earlier day and never finished. Most recent first.
+function missedTasks(){
+  const t=today();
+  return tasks.filter(tk=>!tk.completed && tk.scheduledDate && tk.scheduledDate<t)
+    .sort((a,b)=>b.scheduledDate.localeCompare(a.scheduledDate) || (a.time||'99').localeCompare(b.time||'99'));
+}
+function missedDayLabel(iso){
+  if(iso===addDays(today(),-1)) return 'Yesterday';
+  return new Date(iso+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+function renderMissedTasks(){
+  const missed=missedTasks();
+  document.getElementById('nowMissedSection').style.display = missed.length ? '' : 'none';
+  const list=document.getElementById('nowMissedList');
+  list.innerHTML='';
+  missed.forEach(tk=>list.appendChild(makeTaskRow(tk, { missed:true })));
+}
+function moveMissedToToday(taskId,e){
+  if(e) e.stopPropagation();
+  const tk=tasks.find(t=>t.id===taskId); if(!tk) return;
+  const was=tk.scheduledDate;
+  tk.scheduledDate=today();
+  saveAll(); renderCurrentView();
+  showToast('Moved "'+tk.title+'" to today', ()=>{ tk.scheduledDate=was; saveAll(); renderCurrentView(); });
+}
+function moveAllMissedToToday(){
+  const missed=missedTasks(); if(!missed.length) return;
+  const was=missed.map(tk=>[tk.id, tk.scheduledDate]);
+  missed.forEach(tk=>{ tk.scheduledDate=today(); });
+  saveAll(); renderCurrentView();
+  showToast('Moved '+missed.length+' task'+(missed.length===1?'':'s')+' to today', ()=>{
+    was.forEach(([id,d])=>{ const tk=tasks.find(t=>t.id===id); if(tk) tk.scheduledDate=d; });
+    saveAll(); renderCurrentView();
+  });
 }
 function renderTodayHabits(){
   const t=today();
