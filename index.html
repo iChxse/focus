@@ -39,7 +39,7 @@
   --r-md: 12px;
   --r-lg: 14px;
   --r-xl: 22px;
-  --gutter: 16px;
+  --gutter: 20px;
 
   --safe-b: env(safe-area-inset-bottom, 0px);
   --nav-h: 60px;
@@ -91,7 +91,7 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
   overflow:hidden;
 }
 .card:empty{ display:none; }
-.card > .empty-line{ padding:12px 14px; }
+.card > .empty-line, #pdTaskList > .empty-line, #folderProjectList > .empty-line{ padding:14px; }
 
 /* Section labels (Now / Plan / Library share one style) */
 .now-label, .plan-label, .lib-label{
@@ -195,10 +195,10 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .link{ color:var(--accent); cursor:pointer; text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1px; }
 
 /* Check rows (tasks / habits) */
-.check-row{ display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .15s; }
+.check-row{ display:flex; align-items:center; gap:12px; min-height:52px; padding:8px 14px; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .15s; }
 .check-row:last-child{ border-bottom:none; }
 .check-row{ --kind:var(--ink); }
-.check-dot{ width:22px; height:22px; border-radius:50%; border:2px solid var(--kind); flex-shrink:0; margin-top:0; display:flex; align-items:center; justify-content:center; background:transparent; transition:all .15s; padding:0; }
+.check-dot{ width:21px; height:21px; border-radius:50%; border:1.75px solid var(--kind); flex-shrink:0; margin-top:0; display:flex; align-items:center; justify-content:center; background:transparent; transition:all .15s; padding:0; }
 .check-row.done .check-dot{ background:var(--kind); border-color:var(--kind); }
 .check-row.done .check-dot::after{ content:'✓'; font-size:12px; color:var(--bg); font-weight:800; }
 .check-body{ flex:1; min-width:0; }
@@ -207,7 +207,7 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .check-row.failed .check-dot{ background:var(--breaker); border-color:var(--breaker); }
 .check-row.failed .check-dot::after{ content:'✕'; font-size:10px; color:var(--bg); font-weight:700; }
 .check-row.failed .check-title{ color:var(--breaker); }
-.check-meta{ font-size:12.5px; color:var(--ink-faint); margin-top:2px; display:flex; align-items:center; gap:6px; }
+.check-meta{ font-size:12.5px; color:var(--ink-faint); margin-top:1px; display:flex; align-items:center; gap:6px; }
 .drag-handle{ color:var(--ink-faint); font-size:15px; letter-spacing:-3px; padding:8px 6px 8px 10px; margin:-8px -6px -8px 0; cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none; }
 .check-row.dragging{ position:relative; z-index:5; background:var(--bg-hover); box-shadow:0 8px 24px rgba(0,0,0,.45); transition:none; }
 /* Press-and-hold reorder (Library lists, folder page, ideas) */
@@ -215,7 +215,7 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 [data-reorder].reordering{ position:relative; z-index:5; background:var(--bg-hover); box-shadow:0 10px 28px rgba(0,0,0,.45); }
 [data-reorder].reordering.settling{ box-shadow:0 0 0 rgba(0,0,0,0); }
 .now-resort{ margin-left:auto; font-size:12px; text-transform:none; letter-spacing:0; color:var(--accent); }
-.missed-move{ flex-shrink:0; font-size:12.5px; font-weight:600; color:var(--ink-dim); padding:5px 10px; margin:-4px -4px -4px 0; border:1px solid var(--line); border-radius:999px; }
+.missed-move{ flex-shrink:0; font-size:12.5px; font-weight:600; color:var(--ink-dim); padding:4px 10px; margin:-4px -4px -4px 0; border:1px solid var(--line); border-radius:999px; }
 .missed-move:active{ color:var(--ink); border-color:var(--ink-faint); }
 .pd-time{ font-size:13px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
 .dot-tag{ width:7px; height:7px; border-radius:50%; display:inline-block; flex-shrink:0; }
@@ -271,7 +271,7 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 /* ─────────────────────────────────────────
    PLAN VIEW
 ───────────────────────────────────────── */
-.plan-section{ padding-top:18px; }
+.plan-section{ padding-top:24px; }
 .plan-action{
   font-size:13px; font-weight:600; color:var(--accent);
   background:var(--accent-soft); border-radius:999px; padding:6px 12px; transition:background .15s;
@@ -285,31 +285,39 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 /* ─────────────────────────────────────────
    LIBRARY VIEW
 ───────────────────────────────────────── */
-.lib-group{ padding-top:18px; }
+.lib-group{ padding-top:24px; }
 .lib-add{ font-size:13px; font-weight:600; color:var(--accent); cursor:pointer; }
-.lib-row{ padding:11px 14px; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .15s; }
+.lib-row{ padding:0 14px; min-height:48px; display:flex; flex-direction:column; justify-content:center; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .15s; }
+.lib-row:has(.lib-row-preview), .lib-row:has(.lib-row-meta){ padding-top:10px; padding-bottom:10px; }
 .lib-row:last-child{ border-bottom:none; }
 .lib-row-main{ display:flex; align-items:center; gap:10px; }
-.lib-row-title{ font-size:15px; font-weight:600; }
+.lib-row-title{ font-size:15px; font-weight:500; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lib-row-value{ flex-shrink:0; font-size:13.5px; color:var(--ink-faint); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .lib-row-stats{ display:flex; gap:12px; margin-top:3px; padding-left:17px; font-size:12.5px; color:var(--ink-faint); flex-wrap:wrap; }
 .lib-row-meta{ padding-left:17px; margin-top:4px; font-size:13px; color:var(--ink-faint); }
 .more-link{ font-size:13px; color:var(--ink-faint); padding:12px 16px; }
 
 /* Project / breaker / habit detail */
-.detail-head{ padding:28px var(--gutter) 0; display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
+.detail-head{ padding:20px var(--gutter) 0; display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
 .text-btn{ font-size:14px; font-weight:500; color:var(--ink-dim); transition:color .15s; }
 .detail-head .text-btn{ color:var(--accent); margin-left:-2px; }
 .detail-head .view-title{ margin:0; }
 
 .proj-stats{
-  display:flex; margin:14px var(--gutter) 8px; padding:4px; gap:4px;
-  background:var(--bg-raised); border:1px solid var(--line-soft); border-radius:var(--r-md);
+  display:flex; margin:14px var(--gutter) 0; padding:3px; gap:2px;
+  background:var(--bg-raised); border-radius:10px;
 }
-.proj-stat{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 2px; border-radius:var(--r-sm); color:var(--ink-faint); transition:all .15s; }
-.proj-stat.active{ color:var(--ink); background:var(--bg-hover); box-shadow:0 1px 0 rgba(255,255,255,0.04) inset; }
-.proj-stat.active .proj-stat-num{ color:var(--ink); }
-.proj-stat-num{ font-family:var(--font-mono); font-size:18px; font-weight:500; font-variant-numeric:tabular-nums; }
-.proj-stat-label{ font-size:11.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.proj-stat{ flex:1 1 auto; min-width:0; display:flex; align-items:center; justify-content:center; gap:4px; height:32px; padding:0 6px; border-radius:8px; color:var(--ink-faint); font-size:13px; font-weight:500; transition:background .15s, color .15s; }
+.proj-stat.active{ color:var(--ink); background:var(--bg-hover); box-shadow:0 1px 2px rgba(0,0,0,.25); }
+.proj-stat-num{ font-size:12.5px; font-variant-numeric:tabular-nums; opacity:.75; }
+.proj-stat.active .proj-stat-num{ opacity:.7; }
+.proj-stat-label{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+/* Narrow phones: count under the label so all four names fit */
+@media (max-width:370px){ .proj-stat{ flex:1 1 0; flex-direction:column; gap:0; height:40px; padding:0 2px; font-size:12px; } .proj-stat-num{ font-size:11.5px; } }
+/* Quiet "+ Add" row at the end of a list (project and folder pages) */
+.add-row{ display:flex; align-items:center; gap:12px; width:100%; min-height:48px; padding:0 14px; border-top:1px solid var(--line-soft); font-size:15px; font-weight:500; color:var(--accent); text-align:left; }
+#pdTaskList:empty + .add-row, #folderProjectList:empty + .add-row{ border-top:none; }
+.add-row-plus{ width:20px; text-align:center; font-size:20px; font-weight:400; line-height:1; }
 
 /* ─────────────────────────────────────────
    REVIEW VIEW
@@ -470,14 +478,13 @@ span.cl-text{ font-size:15px; overflow-wrap:anywhere; }
 .journal-group .field-input{ margin-bottom:6px; }
 textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-top:11px; padding-bottom:11px; }
 .journal-saved{ font-size:12.5px; color:var(--ink-faint); margin-top:-6px; min-height:16px; }
-.lib-row-preview{ padding-left:17px; margin-top:4px; font-size:13px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lib-row-preview{ margin-top:3px; font-size:13px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .lib-archived-toggle{ font-size:13px; color:var(--ink-faint); padding:12px 16px; cursor:pointer; }
 .lib-row.archived{ opacity:.6; }
 .lib-adds{ display:flex; gap:14px; }
 .folder-icon{ color:var(--ink-faint); flex-shrink:0; margin-left:-4px; margin-right:-2px; }
-.row-chevron{ margin-left:auto; color:var(--ink-faint); font-size:18px; line-height:1; }
-.row-time{ margin-left:auto; font-size:12.5px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
-.folder-row .lib-row-preview{ padding-left:21px; }
+.row-chevron{ flex-shrink:0; color:var(--ink-faint); font-size:19px; line-height:1; margin-left:2px; margin-top:-2px; }
+.row-time{ flex-shrink:0; font-size:12.5px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
 .dropdown-group{ padding:10px 12px 4px; font-size:11.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); }
 .dropdown-menu button.sub{ padding-left:22px; }
 .slip-extra-row{ display:flex; gap:12px; }
@@ -515,6 +522,7 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
   .lib-row:hover, .idea-row:hover, .journal-entry:hover{ background:var(--bg-hover); }
   .text-btn:hover{ color:var(--ink); }
   .proj-stat:hover{ color:var(--ink-dim); }
+  .add-row:hover, .lib-row:hover{ background:var(--bg-hover); }
   .chip:hover{ border-color:var(--ink-faint); color:var(--ink); }
   .dropdown-btn:hover{ border-color:var(--ink-faint); }
   .dropdown-menu button:hover{ background:var(--line); }
@@ -666,7 +674,7 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
         <div id="libBreakersList" class="card"></div>
       </div>
       <div class="lib-group">
-        <div class="lib-label">Unscheduled tasks</div>
+        <div class="lib-label">Unscheduled</div>
         <div id="libUnscheduledList" class="card"></div>
       </div>
       <div class="lib-group">
@@ -698,9 +706,11 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
       <h1 class="view-title" id="folderTitle"></h1>
       <div class="pd-time" id="folderTime"></div>
     </div>
-    <div class="view-scroll" style="padding-top:14px;">
-      <div id="folderProjectList" class="card"></div>
-      <button class="plan-action" style="margin-top:14px;" onclick="openNewProject(folderViewId)">+ New project</button>
+    <div class="view-scroll" style="padding-top:12px;">
+      <div class="card">
+        <div id="folderProjectList"></div>
+        <button type="button" class="add-row" onclick="openNewProject(folderViewId)"><span class="add-row-plus">+</span>New project</button>
+      </div>
     </div>
   </section>
 
@@ -717,9 +727,11 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
       <div class="pd-time" id="pdTime"></div>
     </div>
     <div class="proj-stats" id="pdStats"></div>
-    <div class="view-scroll" style="padding-top:14px;">
-      <div id="pdTaskList" class="card"></div>
-      <button class="plan-action" style="margin-top:14px;" onclick="openNewTaskForProject()">+ Add task</button>
+    <div class="view-scroll" style="padding-top:12px;">
+      <div class="card">
+        <div id="pdTaskList"></div>
+        <button type="button" class="add-row" onclick="openNewTaskForProject()"><span class="add-row-plus">+</span>Add task</button>
+      </div>
     </div>
   </section>
 
@@ -728,7 +740,7 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
   ════════════════════════════════ -->
   <section class="view" id="view-backlog">
     <div class="detail-head">
-      <button class="text-btn" onclick="goBack()">‹ Now</button>
+      <button class="text-btn" id="backlogBack" onclick="goBack()">‹ Now</button>
       <h1 class="view-title">Unscheduled</h1>
       <div class="pd-time" id="backlogSub"></div>
     </div>
@@ -1708,10 +1720,15 @@ function renderUnscheduledTasks(){
   ts.slice(0,UNSCHED_PREVIEW).forEach(tk=>list.appendChild(makeTaskRow(tk, { toToday:true, showSoon:true })));
   const all=document.createElement('button'); all.type='button'; all.className='nrow-foot';
   all.innerHTML = ts.length>UNSCHED_PREVIEW ? 'View all '+ts.length+' <span class="row-chevron">›</span>' : 'Open list <span class="row-chevron">›</span>';
-  all.onclick=()=>switchView('backlog');
+  all.onclick=()=>openBacklog('now');
   list.appendChild(all);
 }
 // Full page: grouped by project in Library order, "No project" last.
+function openBacklog(from){
+  SUB_VIEWS.backlog=from;
+  document.getElementById('backlogBack').textContent='‹ '+(from==='library'?'Library':'Now');
+  switchView('backlog');
+}
 function renderBacklog(){
   const body=document.getElementById('backlogBody'); body.innerHTML='';
   const ts=unscheduledTasks();
@@ -2603,42 +2620,49 @@ function togglePullIntoPlanDay(taskId, checked){
 
 // ═══ SECTION: LIBRARY VIEW ═══
 const FOLDER_ICON='<svg class="folder-icon" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M1.75 4.25c0-.69.56-1.25 1.25-1.25h3.1l1.4 1.5H13c.69 0 1.25.56 1.25 1.25v6.5c0 .69-.56 1.25-1.25 1.25H3c-.69 0-1.25-.56-1.25-1.25z"/></svg>';
+const CHEV='<span class="row-chevron" aria-hidden="true">›</span>';
+// One-line Library row: title on the left, a short status and chevron on the right.
+function libRowHtml(lead, title, value, opt={}){
+  return `<div class="lib-row-main">${lead||''}<span class="lib-row-title">${title}</span>${value?`<span class="lib-row-value">${value}</span>`:''}${opt.noChev?'':CHEV}</div>${opt.preview?`<div class="lib-row-preview">${opt.preview}</div>`:''}`;
+}
+// "3 open · 8 completed", leaving out whatever is zero.
+function projectSummary(pid){
+  const c=projectTaskCounts(pid), open=c.backlog+c.soon+c.scheduled, parts=[];
+  if(open) parts.push(open+' open');
+  if(c.completed) parts.push(c.completed+' completed');
+  return parts.join(' · ') || 'No tasks';
+}
 function makeFolderLibRow(f){
-  const ps=folderProjects(f.id), week=folderSpentMin(f.id, reviewRange('week',0).start);
+  const ps=folderProjects(f.id);
   const el=document.createElement('div');
   el.className='lib-row folder-row'; el.setAttribute('role','button'); el.setAttribute('tabindex','0');
-  el.innerHTML=`
-    <div class="lib-row-main">${FOLDER_ICON}<span class="lib-row-title">${esc(f.name)}</span><span class="row-chevron">›</span></div>
-    <div class="lib-row-preview">${ps.length ? ps.map(p=>esc(p.name)).join(' · ') : 'Empty'}${week?' · '+fmtDurLong(week)+' this week':''}</div>`;
+  el.innerHTML=libRowHtml(FOLDER_ICON, esc(f.name), ps.length ? plural(ps.length,'project') : 'Empty');
   el.onclick=()=>openFolder(f.id);
   return el;
 }
 function makeProjectLibRow(p){
-  const c = projectTaskCounts(p.id);
   const el=document.createElement('div');
   el.className='lib-row'; el.setAttribute('role','button'); el.setAttribute('tabindex','0');
-  el.innerHTML=`
-    <div class="lib-row-main"><span class="dot-tag" style="background:${p.color}"></span><span class="lib-row-title">${esc(p.name)}</span></div>
-    <div class="lib-row-stats"><span>${c.backlog} Backlog</span><span>${c.soon} Soon</span><span>${c.scheduled} Scheduled</span><span>${c.completed} Completed</span></div>`;
+  el.innerHTML=libRowHtml(`<span class="dot-tag" style="background:${p.color}"></span>`, esc(p.name), projectSummary(p.id));
   el.onclick=()=>openProjectDetail(p.id, folderViewId && activeView==='folder' ? folderViewId : null);
   return el;
+}
+function habitScheduleShort(h){
+  return h.repeatType==='daily' ? 'Daily' : isWeeklyHabit(h) ? habitTarget(h)+'× a week' : h.repeatDays.map(d=>['Su','Mo','Tu','We','Th','Fr','Sa'][d]).join(' ');
 }
 function makeHabitLibRow(h){
   const el=document.createElement('div');
   el.className='lib-row'; el.setAttribute('role','button'); el.setAttribute('tabindex','0');
-  const schedStr = h.repeatType==='daily' ? 'Every day' : isWeeklyHabit(h) ? habitTarget(h)+'× a week' : h.repeatDays.map(d=>['Su','Mo','Tu','We','Th','Fr','Sa'][d]).join(' · ');
-  el.innerHTML=`
-    <div class="lib-row-main"><span class="lib-row-title">${esc(h.name)}</span></div>
-    <div class="lib-row-meta" style="padding-left:0;">${schedStr} · ${habitStreakLabel(h)}</div>`;
+  const n=calcStreak(h);
+  el.innerHTML=libRowHtml('', esc(h.name), habitScheduleShort(h)+(n?' · '+habitStreakLabel(h):''));
   el.onclick=()=>openHabitDetailSheet(h.id);
   return el;
 }
 function makeBreakerLibRow(b){
   const el=document.createElement('div');
   el.className='lib-row'; el.setAttribute('role','button'); el.setAttribute('tabindex','0');
-  el.innerHTML=`
-    <div class="lib-row-main"><span class="dot-tag" style="background:var(--ink-faint)"></span><span class="lib-row-title">${esc(b.name)}</span></div>
-    <div class="lib-row-meta">${calcBreakerStreak(b)} day streak</div>`;
+  const n=calcBreakerStreak(b);
+  el.innerHTML=libRowHtml('', esc(b.name), n ? n+' day streak' : '');
   el.onclick=()=>openBreakerDetailSheet(b.id);
   return el;
 }
@@ -2646,18 +2670,14 @@ function renderLibrary(){
   const ideaRow=document.getElementById('libIdeasRow'); ideaRow.innerHTML='';
   const ir=document.createElement('div');
   ir.className='lib-row'; ir.setAttribute('role','button'); ir.setAttribute('tabindex','0');
-  ir.innerHTML=`
-    <div class="lib-row-main"><span class="dot-tag" style="background:var(--ink-faint)"></span><span class="lib-row-title">${ideas.length} idea${ideas.length!==1?'s':''}</span></div>
-    <div class="lib-row-preview">${ideas.length?esc(ideas[0].text.split('\n')[0]):'Shower thoughts, brainstorms, anything that isn’t a task.'}</div>`;
+  ir.innerHTML=libRowHtml('', 'All ideas', ideas.length?String(ideas.length):'', { preview: ideas.length?esc(ideas[0].text.split('\n')[0]):'Shower thoughts, brainstorms, anything that isn’t a task.' });
   ir.onclick=()=>openIdeas();
   ideaRow.appendChild(ir);
   const jRow=document.getElementById('libJournalRow'); jRow.innerHTML='';
   const jDays=journalDays(), jr=document.createElement('div');
   jr.className='lib-row'; jr.setAttribute('role','button'); jr.setAttribute('tabindex','0');
   const jStreak=journalStreak();
-  jr.innerHTML=`
-    <div class="lib-row-main"><span class="dot-tag" style="background:var(--ink-faint)"></span><span class="lib-row-title">${jDays.length} day${jDays.length!==1?'s':''} written</span></div>
-    <div class="lib-row-preview">${jDays.length ? (journalHasText(today())?'Written today':'Not written today')+(jStreak>1?' · '+jStreak+' day streak':'') : 'A few lines each night on how the day went.'}</div>`;
+  jr.innerHTML=libRowHtml('', journalHasText(today())?'Written today':'Not written today', jDays.length ? plural(jDays.length,'day')+(jStreak>1?' · '+jStreak+' in a row':'') : '', { preview: jDays.length ? '' : 'A few lines each night on how the day went.' });
   jr.onclick=()=>openJournalView();
   jRow.appendChild(jr);
   const projList=document.getElementById('libProjectsList'); projList.innerHTML='';
@@ -2677,12 +2697,11 @@ function renderLibrary(){
   const brkList=document.getElementById('libBreakersList'); brkList.innerHTML='';
   breakers.forEach(b=>{ const r=makeBreakerLibRow(b); brkList.appendChild(r); makeReorderable(r, b.id, 'breaker', ids=>moveIntoOrder(breakers, ids)); });
   const unschedList=document.getElementById('libUnscheduledList'); unschedList.innerHTML='';
-  const unsched = tasks.filter(tk=>!tk.completed && !tk.scheduledDate);
-  if(!unsched.length) unschedList.innerHTML='<div class="empty-line">Nothing unscheduled.</div>';
-  else {
-    unsched.slice(0,8).forEach(tk=>unschedList.appendChild(makeTaskRow(tk)));
-    if(unsched.length>8){ const more=document.createElement('div'); more.className='more-link'; more.textContent='+'+(unsched.length-8)+' more in project backlogs'; unschedList.appendChild(more); }
-  }
+  const nUn=unscheduledTasks().length;
+  const ur=document.createElement('div'); ur.className='lib-row'; ur.setAttribute('role','button'); ur.setAttribute('tabindex','0');
+  ur.innerHTML=libRowHtml('', 'Tasks with no date', nUn?String(nUn):'None', { noChev:!nUn });
+  if(nUn) ur.onclick=()=>openBacklog('library');
+  unschedList.appendChild(ur);
 }
 
 // ═══ SECTION: IDEAS ═══
@@ -2917,13 +2936,14 @@ function renderProjectDetail(){
   [['backlog','Backlog',c.backlog],['soon','Soon',c.soon],['scheduled','Scheduled',c.scheduled],['completed','Completed',c.completed]].forEach(([key,label,count])=>{
     const b=document.createElement('button');
     b.className='proj-stat'+(pdBucket===key?' active':'');
-    b.innerHTML=`<span class="proj-stat-num">${count}</span><span class="proj-stat-label">${label}</span>`;
+    b.innerHTML=`<span class="proj-stat-label">${label}</span><span class="proj-stat-num">${count}</span>`;
     b.onclick=()=>{ pdBucket=key; renderProjectDetail(); };
     stats.appendChild(b);
   });
   const list=document.getElementById('pdTaskList'); list.innerHTML='';
   const filtered = tasks.filter(t=>t.projectId===pdProjectId && taskBucket(t)===pdBucket);
-  if(!filtered.length) list.innerHTML='<div class="empty-line">Nothing here.</div>';
+  const EMPTY={ backlog:'Nothing in the backlog.', soon:'Nothing marked Soon.', scheduled:'Nothing scheduled.', completed:'Nothing completed yet.' };
+  if(!filtered.length) list.innerHTML=`<div class="empty-line">${EMPTY[pdBucket]||'Nothing here.'}</div>`;
   else filtered.forEach(t=>list.appendChild(makeTaskRow(t, { hideProject:true })));
 }
 function openNewTaskForProject(){
@@ -3302,7 +3322,7 @@ function renderFolder(){
   if(!ps.length) list.innerHTML='<div class="empty-line">No projects in this folder yet.</div>';
   ps.forEach(p=>{
     const r=makeProjectLibRow(p), wk=projectSpentMin(p.id, reviewRange('week',0).start);
-    if(wk) r.querySelector('.lib-row-main').insertAdjacentHTML('beforeend', `<span class="row-time">${fmtDurLong(wk)}</span>`);
+    if(wk){ const v=r.querySelector('.lib-row-value'); if(v) v.textContent+=' · '+fmtDurLong(wk)+' this week'; }
     list.appendChild(r);
     makeReorderable(r, p.id, 'project', ids=>moveIntoOrder(projects, ids));
   });
