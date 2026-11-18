@@ -155,35 +155,31 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.35;} }
 .focus-elapsed{ font-family:var(--font-mono); font-size:40px; font-weight:500; color:var(--accent); letter-spacing:0.01em; font-variant-numeric:tabular-nums; }
 
-.now-section{ padding:18px 0 0; }
-/* Now tiles: compact boxes that open in place */
-.tile-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.tile{ background:var(--bg-raised); border:1px solid var(--line-soft); border-radius:var(--r-lg); overflow:hidden; min-width:0; }
-/* Own layer per box: Safari otherwise leaves faint border trails where a box slid past. */
-.tile{ transform:translateZ(0); backface-visibility:hidden; -webkit-backface-visibility:hidden; }
-.tile.wide, .tile.open{ grid-column:1 / -1; }
-.tile[hidden]{ display:none; }
-.tile-head{ position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:2px; width:100%; padding:12px 14px 13px; background:none; border:none; color:inherit; text-align:left; cursor:pointer; font:inherit; }
-.tile-label{ font-size:12px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-dim); }
-.tile-sum{ display:flex; flex-direction:column; min-width:0; max-width:100%; }
-.tile-value{ font-size:22px; font-weight:700; letter-spacing:-0.4px; line-height:1.2; margin-top:4px; font-variant-numeric:tabular-nums; }
-.tile-sub{ font-size:12.5px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.tile-caret{ position:absolute; top:13px; right:12px; width:14px; height:14px; color:var(--ink-faint); transition:transform .25s ease; }
-.tile.wide:not(.open) .tile-head{ flex-direction:row; align-items:center; gap:10px; }
-.tile.wide:not(.open) .tile-sum, .tile.open .tile-sum{ flex-direction:row; align-items:baseline; gap:8px; margin-left:auto; padding-right:22px; }
-.tile.wide:not(.open) .tile-value, .tile.open .tile-value{ font-size:15px; margin:0; letter-spacing:0; }
-.tile.wide:not(.open) .tile-caret, .tile.open .tile-caret{ top:50%; margin-top:-7px; }
-.tile.open .tile-head{ flex-direction:row; align-items:center; gap:10px; }
-.tile.open .tile-caret{ transform:rotate(180deg); }
+.now-section{ padding:24px 0 0; }
+/* Now rows: one grouped list under Today. Each row opens in place. */
+.now-rows{ transform:translateZ(0); backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+.nrow[hidden]{ display:none; }
+.nrow:not([hidden]) ~ .nrow:not([hidden]){ border-top:1px solid var(--line-soft); }
+.nrow-head{ display:flex; align-items:center; gap:10px; width:100%; min-height:50px; padding:0 14px; background:none; border:none; color:inherit; text-align:left; cursor:pointer; font:inherit; }
+.nrow-label{ font-size:15px; font-weight:500; flex:1; min-width:0; }
+.nrow-value{ font-size:14px; color:var(--ink-faint); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.nrow-value.done{ color:var(--ink-dim); }
+.nrow-meter{ width:44px; height:4px; border-radius:2px; background:var(--line); overflow:hidden; flex-shrink:0; }
+.nrow-meter > span{ display:block; height:100%; width:0; background:var(--ink-dim); border-radius:2px; transition:width .3s ease; }
+.nrow-caret, .nrow-chev{ width:14px; height:14px; color:var(--ink-faint); flex-shrink:0; transition:transform .25s ease; }
+.nrow.open .nrow-caret{ transform:rotate(180deg); }
 .tile-body{ display:grid; grid-template-rows:0fr; transition:grid-template-rows .28s cubic-bezier(.2,.7,.3,1); }
-.tile.open .tile-body{ grid-template-rows:1fr; }
+.nrow.open .tile-body{ grid-template-rows:1fr; }
 .tile-body-in{ min-height:0; overflow:hidden; opacity:0; transition:opacity .2s ease; }
-.tile.open .tile-body-in{ opacity:1; border-top:1px solid var(--line-soft); }
-.tile-actions{ display:flex; justify-content:flex-end; padding:8px 14px 0; }
+.nrow.open .tile-body-in{ opacity:1; border-top:1px solid var(--line-soft); }
 .tile-list > .empty-line{ padding:12px 14px; }
-.tile-group{ display:flex; align-items:center; gap:7px; padding:11px 14px 5px; font-size:12px; font-weight:600; color:var(--ink-dim); border-bottom:1px solid var(--line-soft); }
-.tile-group:not(:first-child){ border-top:1px solid var(--line-soft); margin-top:-1px; padding-top:13px; }
-.tile-group-n{ margin-left:auto; color:var(--ink-faint); font-weight:400; font-variant-numeric:tabular-nums; }
+.nrow-foot{ display:flex; align-items:center; gap:6px; width:100%; min-height:44px; padding:0 14px; border-top:1px solid var(--line-soft); font-size:14px; font-weight:500; color:var(--accent); text-align:left; }
+.nrow-foot .row-chevron{ font-size:16px; color:inherit; margin-left:0; }
+.now-empty{ display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:52px; padding:8px 8px 8px 14px; font-size:15px; color:var(--ink-dim); }
+.pill-btn{ flex-shrink:0; font-size:13.5px; font-weight:600; color:var(--accent); background:var(--accent-soft); border-radius:999px; padding:7px 13px; }
+.group-label{ justify-content:flex-start; }
+.group-label .now-label-count{ margin-left:auto; }
+.section{ padding-top:24px; }
 
 .now-label-toggle{ width:100%; background:none; border:none; cursor:pointer; padding:0; text-align:left; transition:color .15s; }
 .toggle-caret{ font-size:10px; transition:transform .2s; display:inline-block; }
@@ -508,6 +504,8 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
   .nav-capture-btn:hover{ transform:translateY(-1px); box-shadow:0 8px 22px rgba(255,138,61,0.36), 0 1px 0 rgba(255,255,255,0.18) inset; }
   .now-head .text-btn:hover{ border-color:var(--accent); color:var(--accent); }
   .now-label-toggle:hover{ color:var(--ink); }
+  .nrow-head:hover, .nrow-foot:hover{ background:var(--bg-hover); }
+  .pill-btn:hover{ background:rgba(255,138,61,0.24); }
   .check-row:hover{ background:var(--bg-hover); }
   .check-dot:hover{ background:color-mix(in srgb, var(--kind) 18%, transparent); }
   .btn-outline-breaker:hover{ background:var(--breaker-soft); }
@@ -558,55 +556,42 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
       </div>
 
       <div class="now-section">
-        <div class="tile-grid" id="nowTiles">
-        <div class="tile" data-tile="missed" id="tile-missed">
-          <button type="button" class="tile-head" onclick="toggleNowTile('missed')" aria-expanded="false">
-            <span class="tile-label">Missed</span>
-            <span class="tile-sum"><span class="tile-value" id="tileVal-missed"></span><span class="tile-sub" id="tileSub-missed"></span></span>
-            <svg class="tile-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="tile-body"><div class="tile-body-in"><div class="tile-actions"><button class="text-btn now-resort" onclick="moveAllMissedToToday()">Move all to today</button></div><div id="nowMissedList" class="tile-list"></div></div></div>
-        </div>
-        <div class="tile" data-tile="unscheduled" id="tile-unscheduled">
-          <button type="button" class="tile-head" onclick="toggleNowTile('unscheduled')" aria-expanded="false">
-            <span class="tile-label">Unscheduled</span>
-            <span class="tile-sum"><span class="tile-value" id="tileVal-unscheduled"></span><span class="tile-sub" id="tileSub-unscheduled"></span></span>
-            <svg class="tile-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="tile-body"><div class="tile-body-in"><div id="nowUnscheduledList" class="tile-list"></div></div></div>
-        </div>
-        <div class="tile" data-tile="habits" id="tile-habits">
-          <button type="button" class="tile-head" onclick="toggleNowTile('habits')" aria-expanded="false">
-            <span class="tile-label">Habits</span>
-            <span class="tile-sum"><span class="tile-value" id="tileVal-habits"></span><span class="tile-sub" id="tileSub-habits"></span></span>
-            <svg class="tile-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="tile-body"><div class="tile-body-in"><div id="nowHabitsList" class="tile-list"></div></div></div>
-        </div>
-        <div class="tile" data-tile="breakers" id="tile-breakers">
-          <button type="button" class="tile-head" onclick="toggleNowTile('breakers')" aria-expanded="false">
-            <span class="tile-label">Breakers</span>
-            <span class="tile-sum"><span class="tile-value" id="tileVal-breakers"></span><span class="tile-sub" id="tileSub-breakers"></span></span>
-            <svg class="tile-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="tile-body"><div class="tile-body-in"><div id="nowBreakersList" class="tile-list"></div></div></div>
-        </div>
-        <div class="tile" data-tile="journal" id="tile-journal">
-          <button type="button" class="tile-head" onclick="toggleNowTile('journal')" aria-expanded="false">
-            <span class="tile-label">Journal</span>
-            <span class="tile-sum"><span class="tile-value" id="tileVal-journal"></span><span class="tile-sub" id="tileSub-journal"></span></span>
-            <svg class="tile-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="tile-body"><div class="tile-body-in"><div id="nowJournal" class="tile-list"></div></div></div>
-        </div>
-        <div class="tile" data-tile="log" id="tile-log">
-          <button type="button" class="tile-head" onclick="toggleNowTile('log')" aria-expanded="false">
-            <span class="tile-label">Today's log</span>
-            <span class="tile-sum"><span class="tile-value" id="tileVal-log"></span><span class="tile-sub" id="tileSub-log"></span></span>
-            <svg class="tile-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <div class="tile-body"><div class="tile-body-in"><div id="nowTimelineList" class="tile-list mini-timeline"></div></div></div>
-        </div>
+        <div class="card now-rows" id="nowTiles">
+          <div class="nrow" data-tile="missed" id="tile-missed">
+            <button type="button" class="nrow-head" onclick="toggleNowTile('missed')" aria-expanded="false">
+              <span class="nrow-label">Missed</span><span class="nrow-value" id="tileVal-missed"></span><svg class="nrow-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="tile-body"><div class="tile-body-in"><div id="nowMissedList" class="tile-list"></div><button type="button" class="nrow-foot" onclick="moveAllMissedToToday()">Move all to today</button></div></div>
+          </div>
+          <div class="nrow" data-tile="habits" id="tile-habits">
+            <button type="button" class="nrow-head" onclick="toggleNowTile('habits')" aria-expanded="false">
+              <span class="nrow-label">Habits</span><span class="nrow-meter" aria-hidden="true"><span id="habitsMeterFill"></span></span><span class="nrow-value" id="tileVal-habits"></span><svg class="nrow-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="tile-body"><div class="tile-body-in"><div id="nowHabitsList" class="tile-list"></div></div></div>
+          </div>
+          <div class="nrow" data-tile="unscheduled" id="tile-unscheduled">
+            <button type="button" class="nrow-head" onclick="toggleNowTile('unscheduled')" aria-expanded="false">
+              <span class="nrow-label">Unscheduled</span><span class="nrow-value" id="tileVal-unscheduled"></span><svg class="nrow-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="tile-body"><div class="tile-body-in"><div id="nowUnscheduledList" class="tile-list"></div></div></div>
+          </div>
+          <div class="nrow" data-tile="breakers" id="tile-breakers">
+            <button type="button" class="nrow-head" onclick="toggleNowTile('breakers')" aria-expanded="false">
+              <span class="nrow-label">Breakers</span><span class="nrow-value" id="tileVal-breakers"></span><svg class="nrow-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="tile-body"><div class="tile-body-in"><div id="nowBreakersList" class="tile-list"></div></div></div>
+          </div>
+          <div class="nrow" data-tile="journal" id="tile-journal">
+            <button type="button" class="nrow-head" onclick="openJournal(today())">
+              <span class="nrow-label">Journal</span><span class="nrow-value" id="tileVal-journal"></span><svg class="nrow-chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <div class="nrow" data-tile="log" id="tile-log">
+            <button type="button" class="nrow-head" onclick="toggleNowTile('log')" aria-expanded="false">
+              <span class="nrow-label">Today's log</span><span class="nrow-value" id="tileVal-log"></span><svg class="nrow-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="tile-body"><div class="tile-body-in"><div id="nowTimelineList" class="tile-list mini-timeline"></div></div></div>
+          </div>
         </div>
       </div>
     </div>
@@ -736,6 +721,18 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
       <div id="pdTaskList" class="card"></div>
       <button class="plan-action" style="margin-top:14px;" onclick="openNewTaskForProject()">+ Add task</button>
     </div>
+  </section>
+
+  <!-- ════════════════════════════════
+       UNSCHEDULED (every task with no date)
+  ════════════════════════════════ -->
+  <section class="view" id="view-backlog">
+    <div class="detail-head">
+      <button class="text-btn" onclick="goBack()">‹ Now</button>
+      <h1 class="view-title">Unscheduled</h1>
+      <div class="pd-time" id="backlogSub"></div>
+    </div>
+    <div class="view-scroll" id="backlogBody"></div>
   </section>
 
   <!-- ════════════════════════════════
@@ -1560,6 +1557,7 @@ function makeTaskRow(tk, opts={}){
     if(spent) metaParts.push(fmtDurLong(spent));
   } else {
     if(opts.missed) metaParts.push(missedDayLabel(tk.scheduledDate));
+    if(opts.showSoon && tk.soon && !tk.scheduledDate) metaParts.push('Soon');
     if(taskItems(tk).length) metaParts.push(itemsProgress(tk)+' items');
     if(tk.time) metaParts.push(tk.time);
     if(proj) metaParts.push(proj.name);
@@ -1574,7 +1572,7 @@ function makeTaskRow(tk, opts={}){
     <div class="check-body">
       <div class="check-title">${esc(tk.title)}</div>
       ${metaParts.length?`<div class="check-meta">${proj?`<span class="dot-tag" style="background:${proj.color}"></span>`:''}${esc(metaParts.join(' · '))}</div>`:''}
-    </div>${opts.missed?`<button type="button" class="missed-move" onclick="moveMissedToToday('${tk.id}',event)">Today</button>`:''}${opts.handle?'<span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>':''}`;
+    </div>${opts.missed||opts.toToday?`<button type="button" class="missed-move" onclick="moveTaskToToday('${tk.id}',event)">Today</button>`:''}${opts.handle?'<span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>':''}`;
   el.dataset.id=tk.id;
   el.addEventListener('click', e=>{ if(e.target.closest('.check-dot,.drag-handle,.missed-move')) return; openTaskDetailSheet(tk.id); });
   if(opts.handle){ const iso=opts.dateIso; makeReorderable(el, tk.id, 'today', ids=>{ dayOrder[iso]=ids; }, { handle: el.querySelector('.drag-handle') }); }
@@ -1613,83 +1611,58 @@ function renderNow(){
   renderTodayTasks();
   renderTodayHabits();
   renderTodayBreakers();
-  renderNowJournal();
   renderMiniTimeline();
   renderNowTiles();
 }
-// ─── Now tiles ───
-// Everything below Today's tasks is a small box with a one-line summary. Tap opens it in place.
-// Empty boxes hide. Which ones are open is remembered on this phone.
+// ─── Now rows ───
+// Below Today's tasks: one short list. Each row shows a one-line status and opens in place
+// (Journal opens today's entry). Rows with nothing in them hide. Open ones are remembered on this phone.
 let nowTilesOpen = new Set(ld('focus2_nowTilesOpen', []));
+const plural=(n,w)=>n+' '+w+(n===1?'':'s');
 function nowTileSummaries(){
   const t=today(), out={};
   const missed=missedTasks();
-  out.missed = missed.length ? { value:String(missed.length), sub: missed.length===1?'task from an earlier day':'tasks from earlier days' } : null;
+  out.missed = missed.length ? { value:plural(missed.length,'task') } : null;
   const un=unscheduledTasks();
-  if(un.length){
-    const np=new Set(un.filter(tk=>tk.projectId).map(tk=>tk.projectId)).size;
-    out.unscheduled = { value:String(un.length), sub: np>1 ? 'across '+np+' projects' : 'no date set' };
-  } else out.unscheduled=null;
+  out.unscheduled = un.length ? { value:plural(un.length,'task') } : null;
   const hs = habits.filter(h=>isHabitScheduledOnDate(h,t) || isWeeklyHabit(h));
   if(hs.length){
     const done = hs.filter(h=>habitCompletedOn(h.id,t) || (isWeeklyHabit(h) && habitWeekCount(h.id,weekStartOf(t))>=habitTarget(h))).length;
-    out.habits = { value: done+'/'+hs.length, sub: done===hs.length ? 'All done today' : (hs.length-done)+' to go today' };
+    out.habits = { value: done+'/'+hs.length, progress: done/hs.length };
   } else out.habits=null;
   if(breakers.length){
     const clean = breakers.filter(b=>{ const r=breakerResultOn(b.id,t); return r && r.result==='success'; }).length;
-    const best = Math.max(...breakers.map(calcBreakerStreak));
-    out.breakers = { value: clean+'/'+breakers.length, sub: best ? 'Best streak '+best+' day'+(best===1?'':'s') : 'clean today' };
+    out.breakers = { value: clean+'/'+breakers.length+' clean' };
   } else out.breakers=null;
-  const jn = journalItems(t).reduce((n,it)=>n+it.list.length,0);
-  out.journal = jn ? { value: jn+' note'+(jn===1?'':'s'), sub:'Tap to read' } : { value:'Not yet', sub: new Date().getHours()>=17 ? 'How did today go?' : 'Write tonight' };
+  out.journal = { value: journalHasText(t) ? 'Written' : 'Not written', done: journalHasText(t) };
   const es = entries.filter(e=>e.date===t);
   const mins = es.filter(isTimedEntry).reduce((m,e)=>m+(entryDurationMin(e)||0),0);
-  out.log = { value: es.length ? String(es.length) : '0', sub: es.length ? (mins ? fmtDurLong(mins)+' focused' : 'logged today') : 'Nothing yet' };
+  out.log = es.length ? { value: mins ? fmtDurLong(mins)+' focused' : plural(es.length,'entry').replace('entrys','entries') } : null;
   return out;
 }
 function renderNowTiles(){
   const sums=nowTileSummaries();
-  const tiles=[...document.querySelectorAll('#nowTiles .tile')];
-  tiles.forEach(el=>{
+  const rows=[...document.querySelectorAll('#nowTiles .nrow')];
+  rows.forEach(el=>{
     const k=el.dataset.tile, sum=sums[k];
     el.hidden=!sum;
     if(!sum) return;
-    document.getElementById('tileVal-'+k).textContent=sum.value;
-    document.getElementById('tileSub-'+k).textContent=sum.sub;
+    const v=document.getElementById('tileVal-'+k);
+    v.textContent=sum.value;
+    v.classList.toggle('done', !!sum.done || sum.progress===1);
+    if(k==='habits') document.getElementById('habitsMeterFill').style.width=Math.round(sum.progress*100)+'%';
+    const head=el.querySelector('.nrow-head');
+    if(!head.hasAttribute('aria-expanded')) return;
     const open=nowTilesOpen.has(k);
     el.classList.toggle('open',open);
-    el.querySelector('.tile-head').setAttribute('aria-expanded',open?'true':'false');
+    head.setAttribute('aria-expanded',open?'true':'false');
   });
-  // Two per row. A closed box left alone on its row (before an open one, or last) stretches across.
-  const vis=tiles.filter(el=>!el.hidden);
-  let col=0;
-  vis.forEach((el,i)=>{
-    el.classList.remove('wide');
-    if(el.classList.contains('open')){ col=0; return; }
-    const next=vis[i+1];
-    if(col===0 && (!next || next.classList.contains('open'))){ el.classList.add('wide'); return; }
-    col=(col+1)%2;
-  });
+  document.getElementById('nowTiles').parentElement.hidden = !rows.some(el=>!el.hidden);
 }
 function toggleNowTile(k){
-  const tiles=[...document.querySelectorAll('#nowTiles .tile:not([hidden])')];
-  const before=new Map(tiles.map(el=>[el, el.getBoundingClientRect()]));
   if(nowTilesOpen.has(k)) nowTilesOpen.delete(k); else nowTilesOpen.add(k);
   sv('focus2_nowTilesOpen',[...nowTilesOpen]);
   renderNowTiles();
-  // Slide boxes from where they were to where they now sit.
-  tiles.forEach(el=>{
-    const a=before.get(el), b=el.getBoundingClientRect();
-    const dx=a.left-b.left, dy=a.top-b.top;
-    if(!dx && !dy) return;
-    el.style.transition='none';
-    el.style.transform=`translate3d(${dx}px,${dy}px,0)`;
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      el.style.transition='transform .28s cubic-bezier(.2,.7,.3,1)';
-      el.style.transform='';
-      el.addEventListener('transitionend',()=>{ el.style.transition=''; },{ once:true });
-    }));
-  });
 }
 function renderTodayTasks(){
   const t=today();
@@ -1702,8 +1675,8 @@ function renderTodayTasks(){
   document.getElementById('nowTasksCount').textContent = todayTasks.length ? todayTasks.length+' left' : '';
   document.getElementById('nowTasksResort').style.display = dayOrder[t] && canReorder ? '' : 'none';
   if(!todayTasks.length) list.innerHTML = scheduled.length
-    ? `<div class="empty-line">All done for today.</div>`
-    : `<div class="empty-line">Nothing scheduled — maybe <span class="link" onclick="switchView('plan')">plan the day</span>.</div>`;
+    ? `<div class="now-empty"><span>All done for today.</span><button type="button" class="pill-btn" onclick="openPlanDay(today(),'Today')">Add more</button></div>`
+    : `<div class="now-empty"><span>Nothing scheduled today.</span><button type="button" class="pill-btn" onclick="openPlanDay(today(),'Today')">Plan your day</button></div>`;
   else todayTasks.forEach(tk=>list.appendChild(makeTaskRow(tk, { handle: canReorder && !tk.completed, dateIso:t })));
 }
 // Missed: scheduled for an earlier day and never finished. Most recent first.
@@ -1722,25 +1695,42 @@ function renderMissedTasks(){
   list.innerHTML='';
   missed.forEach(tk=>list.appendChild(makeTaskRow(tk, { missed:true })));
 }
-// Unscheduled: not done and no date (Backlog and Soon), grouped by project. Soon ones first in each group.
-function unscheduledTasks(){ return tasks.filter(tk=>!tk.completed && !tk.scheduledDate); }
+// Unscheduled: not done and no date (Backlog and Soon). Soon ones first, then oldest.
+function unscheduledTasks(){
+  return tasks.filter(tk=>!tk.completed && !tk.scheduledDate)
+    .sort((x,y)=>(y.soon?1:0)-(x.soon?1:0) || (x.createdAt||'').localeCompare(y.createdAt||''));
+}
+const UNSCHED_PREVIEW=4;
+// On Now: a short preview, then a way to the full list.
 function renderUnscheduledTasks(){
   const list=document.getElementById('nowUnscheduledList'); list.innerHTML='';
   const ts=unscheduledTasks(); if(!ts.length) return;
-  const order=[...projects.map(p=>p.id), null];
+  ts.slice(0,UNSCHED_PREVIEW).forEach(tk=>list.appendChild(makeTaskRow(tk, { toToday:true, showSoon:true })));
+  const all=document.createElement('button'); all.type='button'; all.className='nrow-foot';
+  all.innerHTML = ts.length>UNSCHED_PREVIEW ? 'View all '+ts.length+' <span class="row-chevron">›</span>' : 'Open list <span class="row-chevron">›</span>';
+  all.onclick=()=>switchView('backlog');
+  list.appendChild(all);
+}
+// Full page: grouped by project in Library order, "No project" last.
+function renderBacklog(){
+  const body=document.getElementById('backlogBody'); body.innerHTML='';
+  const ts=unscheduledTasks();
+  document.getElementById('backlogSub').textContent = ts.length ? plural(ts.length,'task')+' with no date' : '';
+  if(!ts.length){ body.innerHTML='<div class="card" style="margin-top:16px;"><div class="empty-line">Nothing unscheduled.</div></div>'; return; }
+  const order=[...activeProjects().map(p=>p.id), null];
   const groups=new Map(order.map(id=>[id,[]]));
   ts.forEach(tk=>{ const k=groups.has(tk.projectId||null) ? (tk.projectId||null) : null; groups.get(k).push(tk); });
   groups.forEach((g,pid)=>{
     if(!g.length) return;
-    g.sort((x,y)=>(y.soon?1:0)-(x.soon?1:0) || (x.createdAt||'').localeCompare(y.createdAt||''));
     const p=pid ? projects.find(x=>x.id===pid) : null;
-    const h=document.createElement('div'); h.className='tile-group';
-    h.innerHTML=`${p?`<span class="dot-tag" style="background:${p.color}"></span>`:''}<span>${p?esc(p.name):'No project'}</span><span class="tile-group-n">${g.length}</span>`;
-    list.appendChild(h);
-    g.forEach(tk=>list.appendChild(makeTaskRow(tk, { hideProject:true })));
+    const sec=document.createElement('div'); sec.className='section';
+    sec.innerHTML=`<div class="now-label group-label">${p?`<span class="dot-tag" style="background:${p.color}"></span>`:''}<span>${p?esc(p.name):'No project'}</span><span class="now-label-count">${g.length}</span></div>`;
+    const card=document.createElement('div'); card.className='card';
+    g.forEach(tk=>card.appendChild(makeTaskRow(tk, { hideProject:true, toToday:true, showSoon:true })));
+    sec.appendChild(card); body.appendChild(sec);
   });
 }
-function moveMissedToToday(taskId,e){
+function moveTaskToToday(taskId,e){
   if(e) e.stopPropagation();
   const tk=tasks.find(t=>t.id===taskId); if(!tk) return;
   const was=tk.scheduledDate;
@@ -1748,6 +1738,7 @@ function moveMissedToToday(taskId,e){
   saveAll(); renderCurrentView();
   showToast('Moved "'+tk.title+'" to today', ()=>{ tk.scheduledDate=was; saveAll(); renderCurrentView(); });
 }
+function moveMissedToToday(taskId,e){ moveTaskToToday(taskId,e); }
 function moveAllMissedToToday(){
   const missed=missedTasks(); if(!missed.length) return;
   const was=missed.map(tk=>[tk.id, tk.scheduledDate]);
@@ -2814,11 +2805,6 @@ function makeJournalEntry(iso, opt={}){
   }
   el.onclick=()=>openJournal(iso, opt.fromDay);
   return el;
-}
-function renderNowJournal(){
-  const t=today();
-  const c=document.getElementById('nowJournal'); c.innerHTML='';
-  c.appendChild(makeJournalEntry(t,{ compact:true }));
 }
 function openJournalView(){ switchView('journal'); }
 function renderJournal(){
@@ -3892,11 +3878,11 @@ function renderReview(){
 }
 
 // ═══ SECTION: NAV / TOAST / KEYBOARD ═══
-const VIEWS=['now','timeline','plan','library','folder','project-detail','ideas','journal','review'];
+const VIEWS=['now','timeline','plan','library','folder','project-detail','ideas','journal','review','backlog'];
 const NAV_VIEWS=['now','timeline','plan','library'];
 // Sub-views and the tab they go back to. Entering one pushes a history entry,
 // so the phone's own back gesture/button returns to the tab as well.
-const SUB_VIEWS={ folder:'library', 'project-detail':'library', ideas:'library', journal:'library', review:'timeline' };
+const SUB_VIEWS={ backlog:'now', folder:'library', 'project-detail':'library', ideas:'library', journal:'library', review:'timeline' };
 let ignoreNextPop=false;
 function switchView(v, fromHistory){
   if(!fromHistory){
@@ -3989,6 +3975,7 @@ function renderView(v){
   else if(v==='ideas') renderIdeas();
   else if(v==='journal') renderJournal();
   else if(v==='review') renderReview();
+  else if(v==='backlog') renderBacklog();
 }
 // ═══ SECTION: BACKUP (export / import) ═══
 // Every focus2_* key goes into one JSON file. Import wipes this phone's focus2_* keys,
