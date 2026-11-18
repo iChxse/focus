@@ -181,6 +181,9 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .tile.open .tile-body-in{ opacity:1; border-top:1px solid var(--line-soft); }
 .tile-actions{ display:flex; justify-content:flex-end; padding:8px 14px 0; }
 .tile-list > .empty-line{ padding:12px 14px; }
+.tile-group{ display:flex; align-items:center; gap:7px; padding:11px 14px 5px; font-size:12px; font-weight:600; color:var(--ink-dim); border-bottom:1px solid var(--line-soft); }
+.tile-group:not(:first-child){ border-top:1px solid var(--line-soft); margin-top:-1px; padding-top:13px; }
+.tile-group-n{ margin-left:auto; color:var(--ink-faint); font-weight:400; font-variant-numeric:tabular-nums; }
 
 .now-label-toggle{ width:100%; background:none; border:none; cursor:pointer; padding:0; text-align:left; transition:color .15s; }
 .toggle-caret{ font-size:10px; transition:transform .2s; display:inline-block; }
@@ -563,6 +566,14 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
             <svg class="tile-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="tile-body"><div class="tile-body-in"><div class="tile-actions"><button class="text-btn now-resort" onclick="moveAllMissedToToday()">Move all to today</button></div><div id="nowMissedList" class="tile-list"></div></div></div>
+        </div>
+        <div class="tile" data-tile="unscheduled" id="tile-unscheduled">
+          <button type="button" class="tile-head" onclick="toggleNowTile('unscheduled')" aria-expanded="false">
+            <span class="tile-label">Unscheduled</span>
+            <span class="tile-sum"><span class="tile-value" id="tileVal-unscheduled"></span><span class="tile-sub" id="tileSub-unscheduled"></span></span>
+            <svg class="tile-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="tile-body"><div class="tile-body-in"><div id="nowUnscheduledList" class="tile-list"></div></div></div>
         </div>
         <div class="tile" data-tile="habits" id="tile-habits">
           <button type="button" class="tile-head" onclick="toggleNowTile('habits')" aria-expanded="false">
@@ -1598,6 +1609,7 @@ function renderNow(){
 
   renderFocusIndicator();
   renderMissedTasks();
+  renderUnscheduledTasks();
   renderTodayTasks();
   renderTodayHabits();
   renderTodayBreakers();
@@ -1613,6 +1625,11 @@ function nowTileSummaries(){
   const t=today(), out={};
   const missed=missedTasks();
   out.missed = missed.length ? { value:String(missed.length), sub: missed.length===1?'task from an earlier day':'tasks from earlier days' } : null;
+  const un=unscheduledTasks();
+  if(un.length){
+    const np=new Set(un.filter(tk=>tk.projectId).map(tk=>tk.projectId)).size;
+    out.unscheduled = { value:String(un.length), sub: np>1 ? 'across '+np+' projects' : 'no date set' };
+  } else out.unscheduled=null;
   const hs = habits.filter(h=>isHabitScheduledOnDate(h,t) || isWeeklyHabit(h));
   if(hs.length){
     const done = hs.filter(h=>habitCompletedOn(h.id,t) || (isWeeklyHabit(h) && habitWeekCount(h.id,weekStartOf(t))>=habitTarget(h))).length;
@@ -1704,6 +1721,24 @@ function renderMissedTasks(){
   const list=document.getElementById('nowMissedList');
   list.innerHTML='';
   missed.forEach(tk=>list.appendChild(makeTaskRow(tk, { missed:true })));
+}
+// Unscheduled: not done and no date (Backlog and Soon), grouped by project. Soon ones first in each group.
+function unscheduledTasks(){ return tasks.filter(tk=>!tk.completed && !tk.scheduledDate); }
+function renderUnscheduledTasks(){
+  const list=document.getElementById('nowUnscheduledList'); list.innerHTML='';
+  const ts=unscheduledTasks(); if(!ts.length) return;
+  const order=[...projects.map(p=>p.id), null];
+  const groups=new Map(order.map(id=>[id,[]]));
+  ts.forEach(tk=>{ const k=groups.has(tk.projectId||null) ? (tk.projectId||null) : null; groups.get(k).push(tk); });
+  groups.forEach((g,pid)=>{
+    if(!g.length) return;
+    g.sort((x,y)=>(y.soon?1:0)-(x.soon?1:0) || (x.createdAt||'').localeCompare(y.createdAt||''));
+    const p=pid ? projects.find(x=>x.id===pid) : null;
+    const h=document.createElement('div'); h.className='tile-group';
+    h.innerHTML=`${p?`<span class="dot-tag" style="background:${p.color}"></span>`:''}<span>${p?esc(p.name):'No project'}</span><span class="tile-group-n">${g.length}</span>`;
+    list.appendChild(h);
+    g.forEach(tk=>list.appendChild(makeTaskRow(tk, { hideProject:true })));
+  });
 }
 function moveMissedToToday(taskId,e){
   if(e) e.stopPropagation();
