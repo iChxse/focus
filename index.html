@@ -1540,7 +1540,8 @@ function makeTaskRow(tk, opts={}){
   const el=document.createElement('div');
   el.className='check-row'+(tk.completed?' done':'');
   el.setAttribute('role','button'); el.setAttribute('tabindex','0');
-  const proj = projects.find(p=>p.id===tk.projectId);
+  // On the project's own page the project name and dot would repeat on every row.
+  const proj = opts.hideProject ? null : projects.find(p=>p.id===tk.projectId);
   const metaParts=[];
   if(tk.completed){
     metaParts.push(new Date(tk.completedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'})+' · '+fmtTimeShort(tk.completedAt));
@@ -2902,7 +2903,7 @@ function renderProjectDetail(){
   const list=document.getElementById('pdTaskList'); list.innerHTML='';
   const filtered = tasks.filter(t=>t.projectId===pdProjectId && taskBucket(t)===pdBucket);
   if(!filtered.length) list.innerHTML='<div class="empty-line">Nothing here.</div>';
-  else filtered.forEach(t=>list.appendChild(makeTaskRow(t)));
+  else filtered.forEach(t=>list.appendChild(makeTaskRow(t, { hideProject:true })));
 }
 function openNewTaskForProject(){
   addTaskDefaultProjectId = pdProjectId;
