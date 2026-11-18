@@ -407,6 +407,24 @@ input[type="date"].field-input::-webkit-date-and-time-value, input[type="time"].
 .dropdown-menu{ margin-top:6px; background:var(--bg-hover); border:1px solid var(--line); border-radius:var(--r-md); max-height:220px; overflow-y:auto; overscroll-behavior:contain; padding:4px; scroll-margin-bottom:100px; }
 .dropdown-menu button{ display:block; width:100%; text-align:left; padding:10px 12px; font-size:14px; color:var(--ink); border-radius:var(--r-sm); }
 .habit-log-status{ font-size:13.5px; color:var(--ink-dim); margin-bottom:14px; }
+/* Checklist inside a task (sub-tasks like milk, eggs) */
+.cl-box{ background:var(--bg-raised); border:1px solid var(--line); border-radius:var(--r-md); padding:0 12px; margin-bottom:14px; }
+.cl-row{ display:flex; align-items:center; gap:10px; min-height:44px; border-bottom:1px solid var(--line-soft); background:var(--bg-raised); }
+.cl-tick{ width:20px; height:20px; border-radius:50%; border:2px solid var(--ink-dim); flex-shrink:0; padding:0; display:flex; align-items:center; justify-content:center; transition:background .15s, border-color .15s; }
+.cl-row.done .cl-tick{ background:var(--ink); border-color:var(--ink); }
+.cl-row.done .cl-tick::after{ content:'✓'; font-size:11px; color:var(--bg); font-weight:800; }
+.cl-text{ flex:1; min-width:0; background:transparent; border:none; outline:none; color:var(--ink); font-size:16px; padding:10px 0; }
+span.cl-text{ font-size:15px; overflow-wrap:anywhere; }
+.cl-row.done .cl-text{ color:var(--ink-faint); text-decoration:line-through; text-decoration-color:rgba(133,138,156,0.6); }
+.cl-remove{ color:var(--ink-faint); font-size:18px; line-height:1; padding:8px 4px; flex-shrink:0; }
+.cl-row .drag-handle{ margin:0; padding:10px 2px 10px 6px; }
+.cl-add{ display:flex; align-items:center; gap:10px; min-height:44px; }
+.cl-plus{ width:20px; text-align:center; color:var(--ink-faint); font-size:18px; flex-shrink:0; }
+.cl-add .cl-text::placeholder{ color:var(--ink-faint); }
+.cl-text:focus, .cl-text:focus-visible{ outline:none; box-shadow:none; }
+.cl-head{ display:flex; justify-content:space-between; align-items:baseline; }
+.cl-count{ font-size:12.5px; color:var(--ink-faint); }
+.detail-checklist{ margin:2px 0 6px; }
 .more-toggle{ font-size:13.5px; font-weight:500; color:var(--ink-faint); text-align:left; padding:4px 0; margin-bottom:4px; }
 
 /* Plan-a-day sheet */
@@ -797,6 +815,11 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
           <input type="time" id="taskDoneAtInput" class="field-input" aria-label="Time done">
         </div>
       </div>
+      <div id="taskChecklistWrap" style="display:none;">
+        <div class="field-label">Checklist</div>
+        <div id="taskChecklist"></div>
+      </div>
+      <button type="button" class="more-toggle" id="taskChecklistToggle" onclick="openTaskChecklist()">+ Checklist</button>
       <button type="button" class="more-toggle" id="taskMoreToggle" onclick="toggleTaskMore()">+ Notes, estimate, time, or repeat</button>
       <div id="taskMoreFields" style="display:none;">
         <div class="field-label" style="margin-top:14px;">Notes</div>
@@ -1415,6 +1438,98 @@ function parseTimeLabelMinutes(label){
   return h*60+mi;
 }
 
+// ═══ SECTION: CHECKLIST (sub-tasks inside a task) ═══
+// tk.items: [{ id, text, done }], in the order shown. Older tasks have no items.
+function newItemId(){ return 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function taskItems(tk){ return Array.isArray(tk && tk.items) ? tk.items : []; }
+function itemsProgress(tk){ const it=taskItems(tk); return it.length ? it.filter(i=>i.done).length+'/'+it.length : ''; }
+function cleanItems(list){ return list.map(i=>({ id:i.id||newItemId(), text:String(i.text||'').trim(), done:!!i.done })).filter(i=>i.text); }
+// Lines pasted or typed with breaks become separate items.
+function splitItemText(text){ return String(text).split(/\r?\n/).map(t=>t.replace(/^\s*(?:[-*•]|\[[ xX]?\])\s*/,'').trim()).filter(Boolean); }
+
+// Editable checklist used by the task sheet and Capture. `key` names its draft list.
+const checklistDrafts={};
+function mountChecklistEditor(wrapId, key, focusAdd){
+  const wrap=document.getElementById(wrapId); if(!wrap) return;
+  const list=checklistDrafts[key]||(checklistDrafts[key]=[]);
+  wrap.innerHTML=`<div class="cl-box"><div class="cl-list"></div>
+    <div class="cl-add"><span class="cl-plus">+</span><input class="cl-text cl-add-input" placeholder="Add item" enterkeyhint="enter" autocomplete="off"></div></div>`;
+  const listEl=wrap.querySelector('.cl-list'), add=wrap.querySelector('.cl-add-input');
+  list.forEach(it=>{
+    const row=document.createElement('div');
+    row.className='cl-row'+(it.done?' done':'');
+    row.innerHTML=`<button type="button" class="cl-tick" aria-label="Tick"></button>
+      <input class="cl-text" value="${esc(it.text)}" aria-label="Item" enterkeyhint="enter" autocomplete="off">
+      <button type="button" class="cl-remove" aria-label="Remove item">×</button>
+      <span class="drag-handle" aria-label="Drag to reorder">⋮⋮</span>`;
+    row.querySelector('.cl-tick').onclick=()=>{ it.done=!it.done; row.classList.toggle('done', it.done); };
+    const inp=row.querySelector('.cl-text');
+    inp.oninput=()=>{ it.text=inp.value; };
+    inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); add.focus(); } };
+    row.querySelector('.cl-remove').onclick=()=>{ list.splice(list.indexOf(it),1); mountChecklistEditor(wrapId, key); };
+    listEl.appendChild(row);
+    makeReorderable(row, it.id, 'cl-'+key, ids=>{
+      const byId=Object.fromEntries(list.map(x=>[x.id,x]));
+      list.splice(0, list.length, ...ids.map(id=>byId[id]));
+      setTimeout(()=>mountChecklistEditor(wrapId, key), 210);
+    }, { handle: row.querySelector('.drag-handle') });
+  });
+  const addFrom=text=>{
+    const parts=splitItemText(text); if(!parts.length) return false;
+    parts.forEach(t=>list.push({ id:newItemId(), text:t, done:false }));
+    mountChecklistEditor(wrapId, key, true); return true;
+  };
+  add.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); addFrom(add.value); } };
+  add.onpaste=e=>{
+    const t=(e.clipboardData||window.clipboardData)?.getData('text');
+    if(t && /\n/.test(t.trim())){ e.preventDefault(); addFrom(add.value+t); }
+  };
+  if(focusAdd) add.focus({ preventScroll:false });
+}
+// Text still sitting in the "Add item" box counts when saving.
+function flushChecklist(wrapId, key){
+  const list=checklistDrafts[key]||[];
+  const add=document.querySelector('#'+wrapId+' .cl-add-input');
+  if(add && add.value.trim()) splitItemText(add.value).forEach(t=>list.push({ id:newItemId(), text:t, done:false }));
+  return cleanItems(list);
+}
+
+// Tick items straight from the task's details (e.g. while shopping).
+function renderDetailChecklist(tk){
+  const box=document.getElementById('taskDetailChecklist'); if(!box) return;
+  const items=taskItems(tk);
+  if(!items.length && tk.completed){ box.innerHTML=''; return; }
+  box.innerHTML=`<div class="cl-head"><span class="field-label">Checklist</span><span class="cl-count">${items.length?itemsProgress(tk)+' done':''}</span></div>
+    <div class="cl-box"><div class="cl-list"></div>
+    <div class="cl-add"><span class="cl-plus">+</span><input class="cl-text cl-add-input" placeholder="Add item" enterkeyhint="enter" autocomplete="off"></div></div>`;
+  const listEl=box.querySelector('.cl-list');
+  items.forEach(it=>{
+    const row=document.createElement('div');
+    row.className='cl-row'+(it.done?' done':''); row.setAttribute('role','button');
+    row.innerHTML=`<button type="button" class="cl-tick" aria-label="Tick"></button><span class="cl-text">${esc(it.text)}</span>`;
+    row.onclick=()=>{
+      it.done=!it.done; row.classList.toggle('done', it.done);
+      box.querySelector('.cl-count').textContent=itemsProgress(tk)+' done';
+      saveAll(); renderCurrentView();
+    };
+    listEl.appendChild(row);
+  });
+  const add=box.querySelector('.cl-add-input');
+  const addFrom=text=>{
+    const parts=splitItemText(text); add.value=''; if(!parts.length) return;
+    tk.items=taskItems(tk).concat(parts.map(t=>({ id:newItemId(), text:t, done:false })));
+    saveAll(); renderCurrentView(); renderDetailChecklist(tk);
+    document.querySelector('#taskDetailChecklist .cl-add-input').focus();
+  };
+  add.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); addFrom(add.value); } };
+  add.onblur=()=>{ if(add.value.trim()){ const v=add.value; add.value=''; const parts=splitItemText(v);
+    tk.items=taskItems(tk).concat(parts.map(t=>({ id:newItemId(), text:t, done:false }))); saveAll(); renderCurrentView(); renderDetailChecklist(tk); } };
+  add.onpaste=e=>{
+    const t=(e.clipboardData||window.clipboardData)?.getData('text');
+    if(t && /\n/.test(t.trim())){ e.preventDefault(); addFrom(add.value+t); }
+  };
+}
+
 // ═══ SECTION: SHARED ROWS ═══
 // Tasks finished before today show no tick box; tapping the row opens details
 // (Edit, Mark not done, Delete) so a stray tap can't undo them.
@@ -1431,6 +1546,7 @@ function makeTaskRow(tk, opts={}){
     if(spent) metaParts.push(fmtDurLong(spent));
   } else {
     if(opts.missed) metaParts.push(missedDayLabel(tk.scheduledDate));
+    if(taskItems(tk).length) metaParts.push(itemsProgress(tk)+' items');
     if(tk.time) metaParts.push(tk.time);
     if(proj) metaParts.push(proj.name);
     const spent=taskSpentMin(tk.id);
@@ -1673,6 +1789,7 @@ function toggleTaskDone(taskId,e,silent,onIso){
       const next={ id:newTaskId(), title:tk.title, projectId:tk.projectId||null, notes:tk.notes||'', completed:false, completedAt:null,
         scheduledDate:nextRepeatDate(tk.scheduledDate||today(), tk.repeat), soon:false, estimateMin:tk.estimateMin||null, time:tk.time||'',
         repeat:{...tk.repeat}, createdAt:now.toISOString() };
+      if(taskItems(tk).length) next.items=taskItems(tk).map(i=>({ id:newItemId(), text:i.text, done:false }));
       tasks.unshift(next);
       tk.nextId=next.id;
     }
@@ -2811,9 +2928,10 @@ function openTaskDetailSheet(taskId){
     if(tk.repeat) rows.push(['Repeats', repeatLabel(tk.repeat)]);
     rows.push(['Status','Incomplete']);
   }
-  document.getElementById('taskDetailBody').innerHTML = rows.map(([k,v])=>`<div class="detail-row"><span class="detail-row-label">${esc(k)}</span><span class="detail-row-value">${esc(v)}</span></div>`).join('')
+  document.getElementById('taskDetailBody').innerHTML = '<div id="taskDetailChecklist" class="detail-checklist"></div>' + rows.map(([k,v])=>`<div class="detail-row"><span class="detail-row-label">${esc(k)}</span><span class="detail-row-value">${esc(v)}</span></div>`).join('')
     + (tk.completed ? `<button type="button" class="btn-quiet" style="margin:16px 0 0;width:100%;" onclick="markTaskNotDone('${tk.id}')">Mark not done</button>
       <button type="button" class="btn-danger" style="margin:10px 0 0;width:100%;" onclick="deleteTaskFromDetail('${tk.id}')">Delete task</button>` : '');
+  renderDetailChecklist(tk);
   const actions=document.getElementById('taskDetailActions');
   if(tk.completed){
     actions.innerHTML = `<button class="btn-cancel" onclick="closeSheet('sheetTaskDetail');openTaskSheet('${tk.id}')">Edit</button><button class="btn-save" onclick="viewTaskInTimeline('${tk.id}')">View in timeline</button>`;
@@ -2915,6 +3033,11 @@ function renderTaskProjectMenu(){
     projectMenuItems('pickTaskProject');
 }
 function pickTaskProject(pid){ selectedTaskProjectId=pid; updateTaskProjectBtn(); closeAllTaskDropdowns(); }
+function showTaskChecklist(show){
+  document.getElementById('taskChecklistWrap').style.display = show ? '' : 'none';
+  document.getElementById('taskChecklistToggle').style.display = show ? 'none' : '';
+}
+function openTaskChecklist(){ showTaskChecklist(true); mountChecklistEditor('taskChecklist','task',true); }
 function toggleTaskMore(){
   taskMoreOpen=true;
   document.getElementById('taskMoreFields').style.display='';
@@ -2954,6 +3077,7 @@ function openTaskSheet(taskId){
     document.getElementById('taskTimeInput').value = tk.time||'';
     const ent = tk.completed ? entries.find(e=>e.id==='et_'+tk.id) : null;
     document.getElementById('taskSpentInput').value = ent && ent.durationMin ? ent.durationMin : '';
+    checklistDrafts.task = taskItems(tk).map(i=>({...i}));
     taskMoreOpen = !!(tk.notes || tk.estimateMin || tk.time || tk.repeat || (ent && ent.durationMin));
   } else {
     selectedTaskBucket='backlog'; selectedTaskDate='';
@@ -2963,11 +3087,14 @@ function openTaskSheet(taskId){
     document.getElementById('taskNotes').value='';
     document.getElementById('taskTimeInput').value='';
     document.getElementById('taskSpentInput').value='';
+    checklistDrafts.task = [];
     taskMoreOpen=false;
   }
   updateTaskDateBtn();
   updateTaskProjectBtn();
   renderTaskProjectMenu();
+  showTaskChecklist(checklistDrafts.task.length>0);
+  mountChecklistEditor('taskChecklist','task');
   renderTaskEstimateChips();
   renderTaskRepeatChips();
   document.getElementById('taskDateInput').style.display = selectedTaskBucket==='date' ? '' : 'none';
@@ -2996,11 +3123,13 @@ function saveTask(){
   const repeat = buildRepeat(selectedTaskRepeat, scheduledDate);
   const notes = document.getElementById('taskNotes').value.trim();
   const time = document.getElementById('taskTimeInput').value.trim();
+  const items = flushChecklist('taskChecklist','task');
   const wasEdit=!!editTaskId;
   if(editTaskId){
     const tk=tasks.find(t=>t.id===editTaskId);
     if(tk){
       tk.title=title; tk.projectId=selectedTaskProjectId||null; tk.scheduledDate=scheduledDate; tk.soon=soon; tk.notes=notes; tk.estimateMin=selectedTaskEstimate; tk.time=time; tk.repeat=repeat;
+      if(items.length) tk.items=items; else delete tk.items;
       const doneOn=document.getElementById('taskDoneOnInput').value, doneAt=document.getElementById('taskDoneAtInput').value;
       if(tk.completed && doneOn && doneOn<=today()){
         const dayChanged = doneOn!==toISO(new Date(tk.completedAt));
@@ -3019,7 +3148,9 @@ function saveTask(){
       }
     }
   } else {
-    tasks.unshift({ id:newTaskId(), title, projectId:selectedTaskProjectId||null, notes, completed:false, completedAt:null, scheduledDate, soon, estimateMin:selectedTaskEstimate, time, repeat, createdAt:new Date().toISOString() });
+    const nt={ id:newTaskId(), title, projectId:selectedTaskProjectId||null, notes, completed:false, completedAt:null, scheduledDate, soon, estimateMin:selectedTaskEstimate, time, repeat, createdAt:new Date().toISOString() };
+    if(items.length) nt.items=items;
+    tasks.unshift(nt);
   }
   addTaskDefaultProjectId=null;
   const fromIdea = !wasEdit && ideaToTaskId ? ideas.findIndex(i=>i.id===ideaToTaskId) : -1;
@@ -3268,6 +3399,7 @@ function saveProject(){
 
 // ═══ SECTION: CAPTURE ═══
 // Capture's task mode offers the same extra fields as the task sheet, behind the same toggle.
+let captureChecklistOpen=false;
 let captureTaskMoreOpen=false, captureTaskNotes='', captureTaskEstimate=null, captureTaskTime='', captureTaskRepeat=null;
 function pickCaptureTaskEstimate(min){ captureTaskEstimate = captureTaskEstimate===min ? null : min; renderCaptureExtra(); }
 function pickCaptureTaskRepeat(freq){ captureTaskRepeat=freq; renderCaptureExtra(); }
@@ -3320,6 +3452,7 @@ function toggleCaptureProjectMenu(){
 }
 function renderCaptureExtra(){
   const wrap=document.getElementById('captureExtra');
+  const pendingItem=document.querySelector('#captureChecklist .cl-add-input')?.value||'';
   if(captureType==='task'){
     const dateLabels={ backlog:'No due date', soon:'This week / Soon', today:'Today', tomorrow:'Tomorrow', date: captureTaskDate?fmtScheduleLabel(captureTaskDate):'Pick date…' };
     const proj = projects.find(p=>p.id===captureTaskProjectId);
@@ -3344,6 +3477,8 @@ function renderCaptureExtra(){
         </div>
       </div>
       ${captureTaskBucket==='date'?`<input type="date" class="field-input" id="captureTaskDateInput" value="${captureTaskDate||''}" onchange="captureTaskDate=this.value">`:''}
+      ${captureChecklistOpen ? `<div class="field-label">Checklist</div><div id="captureChecklist"></div>`
+        : `<button type="button" class="more-toggle" onclick="openCaptureChecklist()">+ Checklist</button>`}
       ${captureTaskMoreOpen ? `
         <div class="field-label" style="margin-top:14px;">Notes</div>
         <textarea class="field-input" id="captureTaskNotes" rows="2" placeholder="Optional notes" oninput="captureTaskNotes=this.value">${esc(captureTaskNotes)}</textarea>
@@ -3354,6 +3489,10 @@ function renderCaptureExtra(){
         <div class="field-label">Repeats</div>
         <div class="chip-row">${[[null,'Never'],['daily','Daily'],['weekdays','Weekdays'],['weekly','Weekly'],['monthly','Monthly']].map(([f,l])=>`<button class="chip${captureTaskRepeat===f?' active':''}" onclick="pickCaptureTaskRepeat(${f?`'${f}'`:'null'})">${l}</button>`).join('')}</div>`
       : `<button type="button" class="more-toggle" onclick="captureTaskMoreOpen=true;renderCaptureExtra()">+ Notes, estimate, time, or repeat</button>`}`;
+    if(captureChecklistOpen){
+      mountChecklistEditor('captureChecklist','capture');
+      if(pendingItem) document.querySelector('#captureChecklist .cl-add-input').value=pendingItem;
+    }
   } else if(captureType==='idea'){
     wrap.innerHTML = `<div class="empty-line">Goes to Ideas in Library, not your tasks.</div>`;
   } else if(captureType==='did'){
@@ -3388,6 +3527,10 @@ function renderCaptureExtra(){
   }
 }
 let captureTypeLocked=false;
+function openCaptureChecklist(){
+  // Keep any half-typed item while the form redraws.
+  captureChecklistOpen=true; renderCaptureExtra(); mountChecklistEditor('captureChecklist','capture',true);
+}
 function guessCaptureType(){
   if(captureTypeLocked) return;
   const text=document.getElementById('captureText').value.toLowerCase();
@@ -3404,6 +3547,7 @@ function guessCaptureType(){
 function openCapture(){
   document.getElementById('captureText').value='';
   captureTaskBucket='backlog'; captureTaskDate=''; captureTaskProjectId=null; captureDidProjectId=null;
+  captureChecklistOpen=false; checklistDrafts.capture=[];
   captureTaskMoreOpen=false; captureTaskNotes=''; captureTaskEstimate=null; captureTaskTime=''; captureTaskRepeat=null; captureDidMinutes=null; captureDidTimeOpen=false; captureSlipMinutes=null;
   captureDidClock=clockOf(new Date());
   captureDay=today(); captureDayPick=false;
@@ -3436,7 +3580,10 @@ function saveCapture(){
     // A repeating task needs a first date; default to today.
     if(captureTaskRepeat && !scheduledDate){ scheduledDate=today(); soon=false; }
     const repeat = buildRepeat(captureTaskRepeat, scheduledDate);
-    tasks.unshift({ id:newTaskId(), title:text, projectId:captureTaskProjectId||null, notes:captureTaskNotes.trim(), completed:false, completedAt:null, scheduledDate, soon, estimateMin:captureTaskEstimate, time:captureTaskTime.trim(), repeat, createdAt:now.toISOString() });
+    const nt={ id:newTaskId(), title:text, projectId:captureTaskProjectId||null, notes:captureTaskNotes.trim(), completed:false, completedAt:null, scheduledDate, soon, estimateMin:captureTaskEstimate, time:captureTaskTime.trim(), repeat, createdAt:now.toISOString() };
+    const items=flushChecklist('captureChecklist','capture');
+    if(items.length) nt.items=items;
+    tasks.unshift(nt);
     showToast('Task added');
   } else if(captureType==='idea'){
     const at=now.toISOString();
@@ -3512,7 +3659,7 @@ function initSheetSwipe(overlay){
     y0=t.clientY; x0=t.clientX; base=null; off=0;
   }, {passive:true});
   sheet.addEventListener('touchmove', e=>{
-    if(skip) return;
+    if(skip || reorderActive) return;
     const t=e.touches[0], dy=t.clientY-y0;
     if(base===null){
       if(sheet.scrollTop>0){ y0=t.clientY; return; }
