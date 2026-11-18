@@ -77,7 +77,9 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .app{ max-width:440px; margin:0 auto; min-height:100vh; position:relative; display:flex; flex-direction:column; }
 .view{ display:none; flex-direction:column; flex:1; }
 .view.active{ display:flex; }
-.view-scroll{ flex:1; overflow-y:auto; padding:0 var(--gutter) calc(var(--nav-h) + 24px + var(--safe-b)); }
+.view-scroll{ flex:1; overflow-y:auto; padding:0 var(--gutter) calc(var(--nav-h) + var(--safe-b) + 32px); }
+/* Anything scrolled into view (focus, menus) stops above the tab bar */
+html{ scroll-padding-bottom:calc(var(--nav-h) + var(--safe-b) + 16px); }
 
 .view-head{ padding:32px var(--gutter) 0; }
 .view-title{ font-family:var(--font-head); font-size:28px; font-weight:800; letter-spacing:-0.8px; line-height:1.15; }
@@ -119,12 +121,12 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .nav-icon{ width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; transition:stroke .15s; }
 .nav-item.active .nav-icon{ stroke:var(--accent); }
 .nav-dot{ display:none; }
-.nav-capture{ flex:0.9; display:flex; align-items:center; justify-content:center; height:48px; }
+.nav-capture{ flex:1; display:flex; align-items:center; justify-content:center; height:48px; }
 .nav-capture-btn{
-  width:48px; height:48px; border-radius:50%;
+  width:42px; height:42px; border-radius:50%;
   background:var(--accent); color:var(--accent-ink);
-  font-size:24px; font-weight:400; line-height:1; display:flex; align-items:center; justify-content:center;
-  box-shadow:0 6px 18px rgba(255,138,61,0.28), 0 1px 0 rgba(255,255,255,0.18) inset;
+  font-size:22px; font-weight:400; line-height:1; display:flex; align-items:center; justify-content:center;
+  box-shadow:0 3px 10px rgba(255,138,61,0.22), 0 1px 0 rgba(255,255,255,0.18) inset;
   transition:transform .15s, box-shadow .15s;
 }
 .nav-capture-btn:active{ transform:scale(.96); }
@@ -157,10 +159,10 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 
 .now-section{ padding:24px 0 0; }
 /* Now rows: one grouped list under Today. Each row opens in place. */
-.now-rows{ transform:translateZ(0); backface-visibility:hidden; -webkit-backface-visibility:hidden; }
+.now-rows{ display:flex; flex-direction:column; gap:10px; }
+.nrow{ background:var(--bg-raised); border:1px solid var(--line-soft); border-radius:var(--r-lg); overflow:hidden; transform:translateZ(0); backface-visibility:hidden; -webkit-backface-visibility:hidden; }
 .nrow[hidden]{ display:none; }
-.nrow:not([hidden]) ~ .nrow:not([hidden]){ border-top:1px solid var(--line-soft); }
-.nrow-head{ display:flex; align-items:center; gap:10px; width:100%; min-height:50px; padding:0 14px; background:none; border:none; color:inherit; text-align:left; cursor:pointer; font:inherit; }
+.nrow-head{ display:flex; align-items:center; gap:10px; width:100%; min-height:48px; padding:0 14px; background:none; border:none; color:inherit; text-align:left; cursor:pointer; font:inherit; }
 .nrow-label{ font-size:15px; font-weight:500; flex:1; min-width:0; }
 .nrow-value{ font-size:14px; color:var(--ink-faint); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .nrow-value.done{ color:var(--ink-dim); }
@@ -173,7 +175,9 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .tile-body-in{ min-height:0; overflow:hidden; opacity:0; transition:opacity .2s ease; }
 .nrow.open .tile-body-in{ opacity:1; border-top:1px solid var(--line-soft); }
 .tile-list > .empty-line{ padding:12px 14px; }
-.nrow-foot{ display:flex; align-items:center; gap:6px; width:100%; min-height:44px; padding:0 14px; border-top:1px solid var(--line-soft); font-size:14px; font-weight:500; color:var(--accent); text-align:left; }
+.nrow .check-row{ min-height:46px; padding-top:6px; padding-bottom:6px; }
+.nrow .entry-row{ padding-top:7px; padding-bottom:7px; }
+.nrow-foot{ display:flex; align-items:center; gap:6px; width:100%; min-height:42px; padding:0 14px; border-top:1px solid var(--line-soft); font-size:14px; font-weight:500; color:var(--accent); text-align:left; }
 .nrow-foot .row-chevron{ font-size:16px; color:inherit; margin-left:0; }
 .now-empty{ display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:52px; padding:8px 8px 8px 14px; font-size:15px; color:var(--ink-dim); }
 .pill-btn{ flex-shrink:0; font-size:13.5px; font-weight:600; color:var(--accent); background:var(--accent-soft); border-radius:999px; padding:7px 13px; }
@@ -195,14 +199,16 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .link{ color:var(--accent); cursor:pointer; text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1px; }
 
 /* Check rows (tasks / habits) */
-.check-row{ display:flex; align-items:center; gap:12px; min-height:52px; padding:8px 14px; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .15s; }
+.check-row{ display:flex; align-items:center; gap:12px; min-height:50px; padding:7px 14px; border-bottom:1px solid var(--line-soft); cursor:pointer; transition:background .15s; }
 .check-row:last-child{ border-bottom:none; }
 .check-row{ --kind:var(--ink); }
-.check-dot{ width:21px; height:21px; border-radius:50%; border:1.75px solid var(--kind); flex-shrink:0; margin-top:0; display:flex; align-items:center; justify-content:center; background:transparent; transition:all .15s; padding:0; }
+.check-dot{ width:21px; height:21px; border-radius:50%; border:1.75px solid var(--kind); flex-shrink:0; margin-top:0; display:flex; align-items:center; justify-content:center; background:transparent; transition:all .15s; padding:0; position:relative; }
+/* Bigger tap area than the circle itself */
+.check-dot::before{ content:''; position:absolute; inset:-11px; }
 .check-row.done .check-dot{ background:var(--kind); border-color:var(--kind); }
 .check-row.done .check-dot::after{ content:'✓'; font-size:12px; color:var(--bg); font-weight:800; }
 .check-body{ flex:1; min-width:0; }
-.check-title{ font-size:15px; font-weight:500; line-height:1.3; }
+.check-title{ font-size:15px; font-weight:500; line-height:1.28; }
 .check-row.done .check-title{ color:var(--ink-faint); text-decoration:line-through; text-decoration-color:rgba(133,138,156,0.6); }
 .check-row.failed .check-dot{ background:var(--breaker); border-color:var(--breaker); }
 .check-row.failed .check-dot::after{ content:'✕'; font-size:10px; color:var(--bg); font-weight:700; }
@@ -306,14 +312,18 @@ input:focus,textarea:focus,button:focus-visible,[role="button"]:focus-visible{ o
 .proj-stats{
   display:flex; margin:14px var(--gutter) 0; padding:3px; gap:2px;
   background:var(--bg-raised); border-radius:10px;
+  overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
 }
-.proj-stat{ flex:1 1 auto; min-width:0; display:flex; align-items:center; justify-content:center; gap:4px; height:32px; padding:0 6px; border-radius:8px; color:var(--ink-faint); font-size:13px; font-weight:500; transition:background .15s, color .15s; }
-.proj-stat.active{ color:var(--ink); background:var(--bg-hover); box-shadow:0 1px 2px rgba(0,0,0,.25); }
-.proj-stat-num{ font-size:12.5px; font-variant-numeric:tabular-nums; opacity:.75; }
-.proj-stat.active .proj-stat-num{ opacity:.7; }
-.proj-stat-label{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
-/* Narrow phones: count under the label so all four names fit */
-@media (max-width:370px){ .proj-stat{ flex:1 1 0; flex-direction:column; gap:0; height:40px; padding:0 2px; font-size:12px; } .proj-stat-num{ font-size:11.5px; } }
+.proj-stats::-webkit-scrollbar{ display:none; }
+.proj-stat{ flex:1 0 auto; display:flex; align-items:center; justify-content:center; gap:6px; height:32px; padding:0 12px; border-radius:8px; color:var(--ink-faint); font-size:13.5px; font-weight:500; white-space:nowrap; transition:background .15s, color .15s; }
+.proj-stat.active{ color:var(--ink); background:var(--bg-hover); font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,.3), 0 0 0 1px var(--line-soft) inset; }
+.proj-stat-num{ font-size:12.5px; font-weight:500; font-variant-numeric:tabular-nums; color:var(--ink-faint); }
+.proj-stat.active .proj-stat-num{ color:var(--ink-dim); }
+@media (max-width:370px){ .proj-stat{ padding:0 10px; font-size:13px; gap:5px; } }
+/* When the tabs don't all fit, fade the edge that has more */
+.proj-stats.more-right{ -webkit-mask-image:linear-gradient(90deg,#000 85%,transparent); mask-image:linear-gradient(90deg,#000 85%,transparent); }
+.proj-stats.more-left{ -webkit-mask-image:linear-gradient(270deg,#000 85%,transparent); mask-image:linear-gradient(270deg,#000 85%,transparent); }
+.proj-stats.more-left.more-right{ -webkit-mask-image:linear-gradient(90deg,transparent,#000 15%,#000 85%,transparent); mask-image:linear-gradient(90deg,transparent,#000 15%,#000 85%,transparent); }
 /* Quiet "+ Add" row at the end of a list (project and folder pages) */
 .add-row{ display:flex; align-items:center; gap:12px; width:100%; min-height:48px; padding:0 14px; border-top:1px solid var(--line-soft); font-size:15px; font-weight:500; color:var(--accent); text-align:left; }
 #pdTaskList:empty + .add-row, #folderProjectList:empty + .add-row{ border-top:none; }
@@ -508,7 +518,7 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
    row a scroll started on, leaving it highlighted as if tapped. */
 @media (hover:hover) and (pointer:fine){
   .nav-item:hover{ color:var(--ink-dim); }
-  .nav-capture-btn:hover{ transform:translateY(-1px); box-shadow:0 8px 22px rgba(255,138,61,0.36), 0 1px 0 rgba(255,255,255,0.18) inset; }
+  .nav-capture-btn:hover{ transform:translateY(-1px); box-shadow:0 5px 14px rgba(255,138,61,0.3), 0 1px 0 rgba(255,255,255,0.18) inset; }
   .now-head .text-btn:hover{ border-color:var(--accent); color:var(--accent); }
   .now-label-toggle:hover{ color:var(--ink); }
   .nrow-head:hover, .nrow-foot:hover{ background:var(--bg-hover); }
@@ -564,18 +574,18 @@ textarea.field-input.journal-field{ min-height:46px; max-height:200px; padding-t
       </div>
 
       <div class="now-section">
-        <div class="card now-rows" id="nowTiles">
-          <div class="nrow" data-tile="missed" id="tile-missed">
-            <button type="button" class="nrow-head" onclick="toggleNowTile('missed')" aria-expanded="false">
-              <span class="nrow-label">Missed</span><span class="nrow-value" id="tileVal-missed"></span><svg class="nrow-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-            <div class="tile-body"><div class="tile-body-in"><div id="nowMissedList" class="tile-list"></div><button type="button" class="nrow-foot" onclick="moveAllMissedToToday()">Move all to today</button></div></div>
-          </div>
+        <div class="now-rows" id="nowTiles">
           <div class="nrow" data-tile="habits" id="tile-habits">
             <button type="button" class="nrow-head" onclick="toggleNowTile('habits')" aria-expanded="false">
               <span class="nrow-label">Habits</span><span class="nrow-meter" aria-hidden="true"><span id="habitsMeterFill"></span></span><span class="nrow-value" id="tileVal-habits"></span><svg class="nrow-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
             <div class="tile-body"><div class="tile-body-in"><div id="nowHabitsList" class="tile-list"></div></div></div>
+          </div>
+          <div class="nrow" data-tile="missed" id="tile-missed">
+            <button type="button" class="nrow-head" onclick="toggleNowTile('missed')" aria-expanded="false">
+              <span class="nrow-label">Missed</span><span class="nrow-value" id="tileVal-missed"></span><svg class="nrow-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="tile-body"><div class="tile-body-in"><div id="nowMissedList" class="tile-list"></div><button type="button" class="nrow-foot" onclick="moveAllMissedToToday()">Move all to today</button></div></div>
           </div>
           <div class="nrow" data-tile="unscheduled" id="tile-unscheduled">
             <button type="button" class="nrow-head" onclick="toggleNowTile('unscheduled')" aria-expanded="false">
@@ -2940,11 +2950,19 @@ function renderProjectDetail(){
     b.onclick=()=>{ pdBucket=key; renderProjectDetail(); };
     stats.appendChild(b);
   });
+  const act=stats.querySelector('.active'); if(act && stats.scrollWidth>stats.clientWidth) stats.scrollLeft=Math.max(0, act.offsetLeft-(stats.clientWidth-act.offsetWidth)/2);
+  updateTabFade(stats);
+  stats.onscroll=()=>updateTabFade(stats);
   const list=document.getElementById('pdTaskList'); list.innerHTML='';
   const filtered = tasks.filter(t=>t.projectId===pdProjectId && taskBucket(t)===pdBucket);
   const EMPTY={ backlog:'Nothing in the backlog.', soon:'Nothing marked Soon.', scheduled:'Nothing scheduled.', completed:'Nothing completed yet.' };
   if(!filtered.length) list.innerHTML=`<div class="empty-line">${EMPTY[pdBucket]||'Nothing here.'}</div>`;
   else filtered.forEach(t=>list.appendChild(makeTaskRow(t, { hideProject:true })));
+}
+function updateTabFade(el){
+  const max=el.scrollWidth-el.clientWidth;
+  el.classList.toggle('more-left', max>1 && el.scrollLeft>1);
+  el.classList.toggle('more-right', max>1 && el.scrollLeft<max-1);
 }
 function openNewTaskForProject(){
   addTaskDefaultProjectId = pdProjectId;
@@ -3940,7 +3958,7 @@ window.addEventListener('popstate', ()=>{
   document.addEventListener('touchstart', e=>{
     view=null;
     if(!SUB_VIEWS[activeView] || e.touches.length!==1 || document.querySelector('.sheet-overlay.open')) return;
-    if(e.target.closest('input,textarea,.drag-handle')) return;
+    if(e.target.closest('input,textarea,.drag-handle,.proj-stats')) return;
     const t=e.touches[0];
     x0=t.clientX; y0=t.clientY; t0=Date.now(); decided=false; dx=0;
     view=document.getElementById('view-'+activeView);
